@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,8 +14,9 @@ label{display:block;font-weight:bold;margin:15px 0 6px}
 input,select{width:100%;padding:13px;border:1px solid #cbd8cf;border-radius:9px;font-size:16px}
 input[readonly]{background:#f1f5f2}
 button{width:100%;padding:14px;margin-top:22px;border:0;border-radius:9px;background:#13783f;color:white;font-size:17px;font-weight:bold}
+button:disabled{opacity:.55}
 .note{font-size:13px;line-height:1.6;color:#53665a}
-.status{padding:12px;background:#e6f4ea;border-radius:9px;margin-top:15px}
+.status{padding:12px;background:#e6f4ea;border-radius:9px;margin-top:15px;overflow-wrap:anywhere}
 a{color:#13783f}
 </style>
 </head>
@@ -31,18 +31,16 @@ a{color:#13783f}
 <div class="status" id="linkInfo">Checking referral link...</div>
 <form id="registerForm">
 <label for="fullName">Full Name</label>
-<input id="fullName" autocomplete="name" required>
+<input id="fullName" autocomplete="name" maxlength="100" required>
 
 <label for="mobile">Mobile Number</label>
-<input id="mobile" type="tel" inputmode="numeric"
-pattern="[0-9]{10}" maxlength="10" required>
+<input id="mobile" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" autocomplete="tel" required>
 
 <label for="username">Username</label>
-<input id="username" minlength="4" maxlength="30"
-pattern="[A-Za-z0-9_]+" autocomplete="username" required>
+<input id="username" minlength="4" maxlength="30" pattern="[A-Za-z0-9_]+" autocomplete="username" required>
 
 <label for="email">Email Address</label>
-<input id="email" type="email" autocomplete="email" required>
+<input id="email" type="email" autocomplete="email" maxlength="254" required>
 
 <label for="referralCode">Referral Code</label>
 <input id="referralCode" readonly required>
@@ -51,38 +49,122 @@ pattern="[A-Za-z0-9_]+" autocomplete="username" required>
 <input id="placement" readonly required>
 
 <label for="password">Password</label>
-<input id="password" type="password" minlength="6"
-autocomplete="new-password" required>
+<input id="password" type="password" minlength="6" autocomplete="new-password" required>
 
 <p class="note">New accounts remain INACTIVE until approved or activated under GOV MART rules.</p>
 <button id="submitBtn" type="submit">Register</button>
-<p class="note" id="message" role="status"></p>
+<p class="note" id="message" role="status" aria-live="polite"></p>
 </form>
 <p class="note">Already registered? <a href="login.html">Login here</a></p>
 <p class="note"><a href="index.html">Back to Home</a></p>
 </div>
 
-<script>
+<script src="config.js"></script>
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const cfg = window.GOV_MART_CONFIG;
 const params = new URLSearchParams(location.search);
 const ref = (params.get("ref") || "").trim();
 const side = (params.get("side") || "").toLowerCase();
 const info = document.getElementById("linkInfo");
+const form = document.getElementById("registerForm");
 const btn = document.getElementById("submitBtn");
+const message = document.getElementById("message");
+const referralInput = document.getElementById("referralCode");
+const placementInput = document.getElementById("placement");
 
-if (ref && ["left","right"].includes(side)) {
-  document.getElementById("referralCode").value = ref;
-  document.getElementById("placement").value = side.toUpperCase();
-  info.textContent = "Referral link received. Server verification is required.";
+let supabase = null;
+if (cfg && cfg.supabaseUrl && cfg.supabaseKey) {
+  supabase = createClient(cfg.supabaseUrl, cfg.supabaseKey);
 } else {
-  info.textContent = "Open a valid referral link containing ref and side=left or side=right.";
+  info.textContent = "Setup incomplete: Supabase configuration could not be loaded. Please contact GOV MART support.";
   btn.disabled = true;
-  btn.style.opacity = ".5";
 }
 
-document.getElementById("registerForm").addEventListener("submit", function(e) {
+if (ref && ["left", "right"].includes(side)) {
+  referralInput.value = ref;
+  placementInput.value = side.toUpperCase();
+  if (supabase) {
+    info.textContent = "Referral link received. The server will verify the referral code and placement during registration.";
+  }
+} else {
+  info.textContent = "Open a valid referral link containing ?ref=REFERRAL_CODE&side=left or ?ref=REFERRAL_CODE&side=right.";
+  btn.disabled = true;
+}
+
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  document.getElementById("message").textContent =
-    "Registration is not connected yet. No account has been created.";
+  message.textContent = "";
+  if (!supabase) {
+    message.textContent = "Registration setup is incomplete. No account was created.";
+    return;
+  }
+  if (!ref || !["left", "right"].includes(side)) {
+    message.textContent = "A valid member referral link is required. No account was created.";
+    return;
+  }
+
+  const fullName = document.getElementById("fullName").value.trim();
+  const mobile = document.getElementById("mobile").value.trim();
+  const username = document.getElementById("username").value.trim().toLowerCase();
+  const email = document.getElementById("email").value.trim().toLowerCase();
+  const password = document.getElementById("password").value;
+
+  if (!/^[0-9]{10}$/.test(mobile)) {
+    message.textContent = "Enter a valid 10-digit mobile number.";
+    return;
+  }
+  if (!/^[a-z0-9_]{4,30}$/.test(username)) {
+    message.textContent = "Username must be 4–30 characters using letters, numbers, or underscore.";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Registering...";
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          account_type: "member",
+          full_name: fullName,
+          mobile,
+          username,
+          referral_code: ref,
+          side
+        },
+        emailRedirectTo: `${location.origin}${location.pathname.replace(/register\.html$/, "login.html")}`
+      }
+    });
+
+    if (error) throw error;
+
+    if (data.user && data.session) {
+      message.textContent = "Registration submitted successfully. Your account status is INACTIVE until activation. You can now sign in.";
+    } else if (data.user) {
+      message.textContent = "Registration request received. Please check your email for the confirmation link before logging in. Your account remains INACTIVE until activation.";
+    } else {
+      message.textContent = "Registration request submitted. Check your email for next steps.";
+    }
+    form.reset();
+    referralInput.value = ref;
+    placementInput.value = side.toUpperCase();
+  } catch (err) {
+    console.error("GOV MART registration error:", err);
+    const raw = (err && err.message) ? err.message : "Unknown registration error.";
+    if (/already registered|already exists|duplicate key|unique constraint/i.test(raw)) {
+      message.textContent = "This email, mobile number, or username may already be registered. Check your details or contact support.";
+    } else if (/referral|placement|binary|sponsor/i.test(raw)) {
+      message.textContent = "Referral code or placement could not be verified. Please use a valid referral link.";
+    } else {
+      message.textContent = "Registration failed: " + raw + " Please check the details and try again.";
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Register";
+  }
 });
 </script>
 </body>
