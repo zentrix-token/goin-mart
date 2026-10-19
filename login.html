@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,42 +8,74 @@
 *{box-sizing:border-box}
 body{margin:0;padding:18px;font-family:Arial,sans-serif;background:#f0f6ef;color:#173b2b}
 header{text-align:center;background:#13783f;color:white;padding:24px 12px;border-radius:14px;margin-bottom:20px}
-header h1{margin:0 0 8px}
-.card{max-width:440px;margin:auto;padding:22px;background:white;border-radius:16px;box-shadow:0 4px 18px #0001}
-label{display:block;font-weight:bold;margin:15px 0 6px}
-input{width:100%;padding:13px;border:1px solid #cbd8cf;border-radius:9px;font-size:16px}
-button{width:100%;padding:14px;margin-top:22px;border:0;border-radius:9px;background:#13783f;color:white;font-size:17px;font-weight:bold}
-.note{font-size:13px;line-height:1.6;color:#53665a}
+header h1{margin:0 0 8px;font-size:clamp(30px,8vw,44px)}
+.card{max-width:480px;margin:auto;padding:22px;background:white;border-radius:16px;box-shadow:0 4px 18px #0001}
+label{display:block;font-weight:bold;margin:18px 0 6px}
+input{width:100%;padding:14px;border:1px solid #cbd8cf;border-radius:9px;font-size:16px}
+button{width:100%;padding:15px;margin-top:22px;border:0;border-radius:9px;background:#13783f;color:white;font-size:18px;font-weight:bold}
+button:disabled{opacity:.6}
+.note{font-size:14px;line-height:1.6;color:#53665a}
+#message{overflow-wrap:anywhere}
 a{color:#13783f}
 </style>
 </head>
 <body>
-<header>
-<h1>GOV MART</h1>
-<div>Shop Smart. Save More.</div>
-</header>
+<header><h1>GOV MART</h1><div>Shop Smart. Save More.</div></header>
 <div class="card">
 <h2>Member Login</h2>
 <p class="note">Sign in to access your GOV MART account.</p>
 <form id="loginForm">
 <label for="email">Email Address</label>
-<input id="email" type="email" autocomplete="username" required>
-
+<input id="email" type="email" autocomplete="username" maxlength="254" required>
 <label for="password">Password</label>
 <input id="password" type="password" autocomplete="current-password" required>
-
-<button type="submit">Login</button>
-<p class="note" id="message" role="status"></p>
+<button id="loginBtn" type="submit">Login</button>
+<p class="note" id="message" role="status" aria-live="polite"></p>
 </form>
 <p class="note">New member? <a href="register.html">Register here</a></p>
 <p class="note"><a href="index.html">Back to Home</a></p>
 </div>
-<script>
-document.getElementById("loginForm").addEventListener("submit",function(e){
-  e.preventDefault();
-  document.getElementById("message").textContent =
-    "Login service is not connected yet.";
-});
+<script src="config.js"></script>
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const cfg = window.GOV_MART_CONFIG;
+const form = document.getElementById("loginForm");
+const btn = document.getElementById("loginBtn");
+const message = document.getElementById("message");
+if (!cfg || !cfg.supabaseUrl || !cfg.supabaseKey) {
+  message.textContent = "Login setup is incomplete. Please contact GOV MART support.";
+  btn.disabled = true;
+} else {
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseKey);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault(); message.textContent = "";
+    btn.disabled = true; btn.textContent = "Signing in...";
+    try {
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      const password = document.getElementById("password").value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const { data: profile, error: profileError } = await supabase.from("gov_mart_members")
+        .select("full_name, username, account_status").eq("id", data.user.id).maybeSingle();
+      if (profileError) throw profileError;
+      if (!profile) {
+        message.textContent = "Login succeeded, but your GOV MART member profile was not found. Please contact support.";
+        return;
+      }
+      if (profile.account_status !== "active") {
+        await supabase.auth.signOut();
+        message.textContent = "Login details are correct, but your account is " + String(profile.account_status || "inactive").toUpperCase() + ". Please wait for GOV MART activation or contact support.";
+        return;
+      }
+      message.textContent = "Login successful. Welcome, " + profile.full_name + " ( @" + profile.username + " ). Authentication is connected; the member dashboard is not yet configured.";
+    } catch (error) {
+      const raw = error && error.message ? error.message : "Unknown login error.";
+      if (/invalid login credentials/i.test(raw)) message.textContent = "Email or password is incorrect. Please check and try again.";
+      else if (/email not confirmed/i.test(raw)) message.textContent = "Email confirmation is still required in Supabase Auth settings.";
+      else message.textContent = "Login failed: " + raw;
+    } finally { btn.disabled = false; btn.textContent = "Login"; }
+  });
+}
 </script>
 </body>
 </html>
