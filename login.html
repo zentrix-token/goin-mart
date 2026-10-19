@@ -62,12 +62,8 @@ if (!cfg || !cfg.supabaseUrl || !cfg.supabaseKey) {
         message.textContent = "Login succeeded, but your GOV MART member profile was not found. Please contact support.";
         return;
       }
-      if (profile.account_status !== "active") {
-        await supabase.auth.signOut();
-        message.textContent = "Login details are correct, but your account is " + String(profile.account_status || "inactive").toUpperCase() + ". Please wait for GOV MART activation or contact support.";
-        return;
-      }
-      message.textContent = "Login successful. Welcome, " + profile.full_name + " ( @" + profile.username + " ). Authentication is connected; the member dashboard is not yet configured.";
+      message.textContent = "Login successful. Opening your GOV MART dashboard...";
+      window.location.href = "user.html";
     } catch (error) {
       const raw = error && error.message ? error.message : "Unknown login error.";
       if (/invalid login credentials/i.test(raw)) message.textContent = "Email or password is incorrect. Please check and try again.";
