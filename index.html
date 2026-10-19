@@ -1,0 +1,135 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14783f">
+  <title>GOV MART | Shop Smart. Save More.</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f2f7f1;
+      color: #173b2b;
+    }
+    header {
+      background: #13783f;
+      color: white;
+      padding: 22px 16px;
+      text-align: center;
+    }
+    header h1 { margin: 0 0 8px; font-size: 30px; }
+    header p { margin: 0; }
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      padding: 14px;
+      background: white;
+      flex-wrap: wrap;
+    }
+    a { color: #13783f; font-weight: bold; }
+    nav a { text-decoration: none; padding: 8px; }
+    main {
+      max-width: 760px;
+      margin: 28px auto;
+      padding: 16px;
+    }
+    .hero {
+      background: white;
+      border-radius: 18px;
+      padding: 30px 20px;
+      text-align: center;
+      box-shadow: 0 4px 18px #0000000d;
+    }
+    .hero h2 { font-size: 29px; margin: 0 0 12px; }
+    .hero p { line-height: 1.7; color: #53665a; }
+    .actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 13px 20px;
+      border-radius: 10px;
+      background: #13783f;
+      color: white;
+      text-decoration: none;
+    }
+    .btn.secondary {
+      background: white;
+      color: #13783f;
+      border: 1px solid #13783f;
+    }
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+    .feature {
+      background: white;
+      border-radius: 14px;
+      padding: 18px;
+      line-height: 1.6;
+    }
+    footer {
+      text-align: center;
+      padding: 24px 12px;
+      color: #53665a;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GOV MART</h1>
+    <p>Shop Smart. Save More.</p>
+  </header>
+
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="register.html">Join Now</a>
+    <a href="login.html">Member Login</a>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <h2>Welcome to GOV MART</h2>
+      <p>
+        Your shopping and membership destination.
+        Register to access your member account and explore
+        the GOV MART experience.
+      </p>
+      <div class="actions">
+        <a class="btn" href="register.html">Become a Member</a>
+        <a class="btn secondary" href="login.html">Member Login</a>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="feature">
+        <strong>🛒 Smart Shopping</strong>
+        <p>Explore the GOV MART shopping experience.</p>
+      </div>
+      <div class="feature">
+        <strong>👤 Member Account</strong>
+        <p>Access your profile after registration and login.</p>
+      </div>
+      <div class="feature">
+        <strong>🔗 Referral Access</strong>
+        <p>Join through a valid member referral link.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    © GOV MART. All rights reserved.
+  </footer>
+</body>
+</html>
