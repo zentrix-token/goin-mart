@@ -18,6 +18,19 @@
 .tree-expand-hint{font-size:10px;padding:8px 5px;margin-top:5px;width:100%;overflow-wrap:anywhere}
 @media(max-width:680px){.tree-columns{grid-template-columns:1fr}.tree-side{padding:10px;overflow-x:auto}.binary-root-children{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.binary-children{grid-template-columns:repeat(2,minmax(150px,1fr));min-width:316px;gap:8px;margin-top:10px;padding-top:9px}.binary-child-side{min-width:150px;padding:7px}.tree-click-node{font-size:14px;padding:10px;overflow-wrap:anywhere}.tree-click-node small{font-size:11px;line-height:1.4}.binary-side-label{font-size:10px}.binary-empty{font-size:11px}}
 
+
+/* Mobile tree readability fix: keep binary branches wide; scroll horizontally instead of squeezing nested cards. */
+@media (max-width: 680px) {
+  #team .card.panel:has(#binaryTreeRoot) { overflow-x:auto; overscroll-behavior-x:contain; }
+  #team .card.panel:has(#binaryTreeRoot) .tree-columns { width:700px; min-width:700px; grid-template-columns:1fr 1fr; gap:12px; }
+  #team .card.panel:has(#binaryTreeRoot) .tree-side { width:100%; min-width:0; overflow:visible; }
+  #team .card.panel:has(#binaryTreeRoot) .binary-root-children { grid-template-columns:repeat(2,minmax(150px,1fr)); gap:12px; }
+  #team .card.panel:has(#binaryTreeRoot) .binary-children { grid-template-columns:repeat(2,minmax(150px,1fr)); min-width:316px; gap:8px; }
+  #team .card.panel:has(#binaryTreeRoot) .binary-child-side { min-width:150px; }
+  #team .card.panel:has(#binaryTreeRoot) .tree-click-node { min-width:140px; font-size:14px; line-height:1.35; overflow-wrap:anywhere; }
+  #team .card.panel:has(#binaryTreeRoot) .tree-click-node small { font-size:12px; line-height:1.35; }
+}
+
 </style></head><body>
 <section id="loading" class="card" style="max-width:500px;margin:50px auto"><h2>GOV MART</h2><p class="mut">Checking your secure session...</p></section>
 <section id="signedOut" class="card hidden" style="max-width:500px;margin:50px auto"><h2>Login required</h2><p class="mut" id="signedOutMessage">Please sign in with your GOV MART member account.</p><button class="btn" onclick="location.href='login.html'">Go to Login</button> <button class="btn secondary" onclick="location.href='index.html'">Home</button></section>
