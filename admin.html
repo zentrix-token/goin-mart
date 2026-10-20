@@ -23,7 +23,32 @@ function clearForm(){editId=null;el('name').value='';el('amount').value='';el('r
 el('roiEnabled').addEventListener('change',()=>{const enabled=el('roiEnabled').value==='true';el('roiRate').disabled=!enabled;el('roiType').disabled=!enabled;el('roiDuration').disabled=!enabled;});el('roiEnabled').dispatchEvent(new Event('change'));
 el('clear').onclick=clearForm;el('refresh').onclick=loadPlans;el('logout').onclick=async()=>{const {error}=await sb.auth.signOut();if(error)say(error.message);else location.href='login.html'};
 function roiText(p){if(!p.roi_enabled)return 'ROI: Not applicable';let text=`ROI: ${Number(p.roi_rate).toLocaleString('en-IN')}% ${String(p.roi_type||'monthly')} `;text+=p.roi_duration_days>0?`for ${p.roi_duration_days} days`:'(duration not specified)';return text;}
-async function loadPlans(){plans.textContent='Loading plans...';const {data,error}=await sb.from('gov_mart_plans').select('id,plan_name,amount,is_active,roi_enabled,roi_rate,roi_type,roi_duration_days').order('amount');if(error){plans.textContent='Could not load plans: '+error.message;return}plans.replaceChildren();if(!data?.length){plans.textContent='No plans found.';return}for(const p of data){const box=document.createElement('div');box.className='plan';const title=document.createElement('h3');title.textContent=p.plan_name+' — ₹'+Number(p.amount).toLocaleString('en-IN');const badge=document.createElement('span');badge.className='pill'+(p.is_active?'':' off');badge.textContent=p.is_active?'ACTIVE':'DISABLED';const details=document.createElement('p');details.className='muted';details.textContent=roiText(p);const edit=document.createElement('button');edit.className='secondary';edit.textContent='Edit';edit.onclick=()=>{editId=p.id;el('name').value=p.plan_name;el('amount').value=p.amount;el('roiEnabled').value=String(!!p.roi_enabled);el('roiRate').value=p.roi_rate??0;el('roiType').value=p.roi_type||'monthly';el('roiDuration').value=p.roi_duration_days??0;el('roiEnabled').dispatchEvent(new Event('change'));el('save').textContent='Save Changes';window.scrollTo({top:0,behavior:'smooth'});};const toggle=document.createElement('button');toggle.className=p.is_active?'danger':'';toggle.textContent=p.is_active?'Disable Plan':'Enable Plan';toggle.onclick=async()=>{toggle.disabled=true;const {error}=await sb.from('gov_mart_plans').update({is_active:!p.is_active,updated_at:new Date().toISOString()}).eq('id',p.id);if(error)say('Update failed: '+error.message);else say('Plan status updated.');await loadPlans();};box.append(title,badge,details,edit,toggle);plans.append(box);}}
+async function loadPlans(){
+ const select=el('activatePlan');
+ if(select) select.innerHTML='<option value="">Loading plans...</option>';
+ plans.textContent='Loading plans...';
+ const {data,error}=await sb.from('gov_mart_plans').select('id,plan_name,amount,is_active,roi_enabled,roi_rate,roi_type,roi_duration_days').order('amount');
+ if(error){
+   plans.textContent='Could not load plans: '+error.message;
+   if(select) select.innerHTML='<option value="">Could not load plans</option>';
+   if(el('activateMsg')) el('activateMsg').textContent='Could not load plans: '+error.message;
+   return;
+ }
+ if(select){
+   select.replaceChildren();
+   const activePlans=(data||[]).filter(p=>p.is_active===true);
+   if(!activePlans.length){
+     select.add(new Option('No active plans found',''));
+   } else {
+     select.add(new Option('Select an active plan',''));
+     for(const plan of activePlans){
+       const option=new Option(`${plan.plan_name} — ₹${Number(plan.amount).toLocaleString('en-IN')}`,plan.id);
+       option.dataset.amount=String(plan.amount);
+       select.add(option);
+     }
+   }
+ }
+ plans.replaceChildren();if(!data?.length){plans.textContent='No plans found.';return}for(const p of data){const box=document.createElement('div');box.className='plan';const title=document.createElement('h3');title.textContent=p.plan_name+' — ₹'+Number(p.amount).toLocaleString('en-IN');const badge=document.createElement('span');badge.className='pill'+(p.is_active?'':' off');badge.textContent=p.is_active?'ACTIVE':'DISABLED';const details=document.createElement('p');details.className='muted';details.textContent=roiText(p);const edit=document.createElement('button');edit.className='secondary';edit.textContent='Edit';edit.onclick=()=>{editId=p.id;el('name').value=p.plan_name;el('amount').value=p.amount;el('roiEnabled').value=String(!!p.roi_enabled);el('roiRate').value=p.roi_rate??0;el('roiType').value=p.roi_type||'monthly';el('roiDuration').value=p.roi_duration_days??0;el('roiEnabled').dispatchEvent(new Event('change'));el('save').textContent='Save Changes';window.scrollTo({top:0,behavior:'smooth'});};const toggle=document.createElement('button');toggle.className=p.is_active?'danger':'';toggle.textContent=p.is_active?'Disable Plan':'Enable Plan';toggle.onclick=async()=>{toggle.disabled=true;const {error}=await sb.from('gov_mart_plans').update({is_active:!p.is_active,updated_at:new Date().toISOString()}).eq('id',p.id);if(error)say('Update failed: '+error.message);else say('Plan status updated.');await loadPlans();};box.append(title,badge,details,edit,toggle);plans.append(box);}}
 el('save').onclick=async()=>{const name=el('name').value.trim(),amount=Number(el('amount').value),roiEnabled=el('roiEnabled').value==='true',roiRate=Number(el('roiRate').value),roiType=el('roiType').value,roiDuration=Number(el('roiDuration').value);if(!name||!Number.isFinite(amount)||amount<=0){say('Enter a plan name and amount greater than zero.');return}if(roiEnabled&&(!Number.isFinite(roiRate)||roiRate<=0||roiRate>100)){say('For a plan with ROI, enter a rate greater than 0 and no more than 100%.');return}if(!Number.isInteger(roiDuration)||roiDuration<0){say('ROI duration must be 0 or a positive whole number of days.');return}const payload={plan_name:name,amount,roi_enabled:roiEnabled,roi_rate:roiEnabled?roiRate:0,roi_type:roiType,roi_duration_days:roiEnabled?roiDuration:0,updated_at:new Date().toISOString()};const b=el('save');b.disabled=true;const result=editId?await sb.from('gov_mart_plans').update(payload).eq('id',editId):await sb.from('gov_mart_plans').insert({...payload,is_active:true});b.disabled=false;if(result.error){say('Save failed: '+result.error.message);return}say(editId?'Plan and ROI settings updated.':'Plan added with ROI settings.');clearForm();el('roiEnabled').dispatchEvent(new Event('change'));await loadPlans();};
 async function loadRecords(){
  const ah=el('activationRecords'),ph=el('paymentRecords');el('activationRecordsMsg').textContent='Loading...';el('paymentRecordsMsg').textContent='Loading...';
