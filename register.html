@@ -11,7 +11,7 @@ header{text-align:center;background:#13783f;color:white;padding:24px 12px;border
 header h1{margin:0 0 8px}
 .card{max-width:480px;margin:auto;padding:22px;background:white;border-radius:16px;box-shadow:0 4px 18px #0001}
 label{display:block;font-weight:bold;margin:15px 0 6px}
-input,select{width:100%;padding:13px;border:1px solid #cbd8cf;border-radius:9px;font-size:16px}
+input,select{width:100%;padding:13px;border:1px solid #cbd8cf;border-radius:9px;font-size:16px}input.field-error{border:2px solid #c62828;background:#fff7f7;box-shadow:0 0 0 3px #c6282818}input.field-ok{border:2px solid #16834a}.field-error-text{display:none;color:#b42318;font-size:13px;font-weight:700;line-height:1.45;margin-top:6px}.field-error-text.show{display:block}.field-help{font-size:12px;color:#64756a;margin-top:5px}
 input[readonly]{background:#f1f5f2}
 button{width:100%;padding:14px;margin-top:22px;border:0;border-radius:9px;background:#13783f;color:white;font-size:17px;font-weight:bold}
 button:disabled{opacity:.55}
@@ -34,13 +34,13 @@ a{color:#13783f}
 <input id="fullName" autocomplete="name" maxlength="100" required>
 
 <label for="mobile">Mobile Number</label>
-<input id="mobile" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" autocomplete="tel" required>
+<input id="mobile" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" autocomplete="tel" required><div class="field-error-text" id="mobileError"></div>
 
 <label for="username">Username</label>
-<input id="username" minlength="4" maxlength="30" pattern="[A-Za-z0-9_]+" autocomplete="username" required>
+<input id="username" minlength="6" maxlength="30" pattern="[A-Za-z0-9_]+" autocomplete="username" required aria-describedby="usernameHelp usernameError"><div class="field-help" id="usernameHelp">Use at least 6 characters (letters, numbers, or underscore).</div><div class="field-error-text" id="usernameError"></div>
 
 <label for="email">Email Address</label>
-<input id="email" type="email" autocomplete="email" maxlength="254" required>
+<input id="email" type="email" autocomplete="email" maxlength="254" required><div class="field-error-text" id="emailError"></div>
 
 <label for="referralCode">Referral Code</label>
 <input id="referralCode" readonly required>
@@ -71,6 +71,10 @@ const info = document.getElementById("linkInfo");
 const form = document.getElementById("registerForm");
 const btn = document.getElementById("submitBtn");
 const message = document.getElementById("message");
+const fieldIds = { mobile: "mobileError", username: "usernameError", email: "emailError" };
+function clearFieldErrors(){ for (const id of ["mobile","username","email"]) { const el=document.getElementById(id); el.classList.remove("field-error","field-ok"); const err=document.getElementById(fieldIds[id]); if(err){err.textContent="";err.classList.remove("show");} } }
+function fieldError(field, text){ const el=document.getElementById(field); const err=document.getElementById(fieldIds[field]); if(el){el.classList.add("field-error");el.classList.remove("field-ok");el.setAttribute("aria-invalid","true");} if(err){err.textContent=text;err.classList.add("show");} if(el) el.focus(); }
+for (const id of ["mobile","username","email"]) { document.getElementById(id).addEventListener("input",()=>{const el=document.getElementById(id);el.classList.remove("field-error");el.removeAttribute("aria-invalid");const err=document.getElementById(fieldIds[id]);if(err){err.textContent="";err.classList.remove("show");}}); }
 const referralInput = document.getElementById("referralCode");
 const placementInput = document.getElementById("placement");
 
@@ -121,7 +125,7 @@ async function loadReferralPreview() {
     user.textContent = "Username: " + (sponsor.username || "—");
     const placement = document.createElement("div");
     placement.className = "line";
-    placement.textContent = "Your placement: " + side.toUpperCase();
+    placement.textContent = "Placement: " + side.toUpperCase() + " under " + (sponsor.username || sponsor.full_name || "your sponsor");
     info.append(heading, name, user, placement);
     btn.disabled = false;
   } catch (error) {
@@ -136,6 +140,7 @@ loadReferralPreview();
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   message.textContent = "";
+  clearFieldErrors();
   if (!supabase) {
     message.textContent = "Registration setup is incomplete. No account was created.";
     return;
@@ -152,15 +157,15 @@ form.addEventListener("submit", async (e) => {
   const password = document.getElementById("password").value;
 
   if (!/^[0-9]{10}$/.test(mobile)) {
-    message.textContent = "Enter a valid 10-digit mobile number.";
+    fieldError("mobile", "Enter a valid 10-digit mobile number.");
     return;
   }
-  if (!/^[a-z0-9_]{4,30}$/.test(username)) {
-    message.textContent = "Username must be 4–30 characters using letters, numbers, or underscore.";
+  if (!/^[a-z0-9_]{6,30}$/.test(username)) {
+    fieldError("username", "Username must be 6–30 characters using letters, numbers, or underscore.");
     return;
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    message.textContent = "Enter a valid email address.";
+    fieldError("email", "Enter a valid email address.");
     return;
   }
 
@@ -175,9 +180,9 @@ form.addEventListener("submit", async (e) => {
     if (checkError) throw checkError;
     const used = Array.isArray(checks) ? checks[0] : checks;
     if (used?.mobile_used || used?.username_used || used?.email_used) {
-      if (used.mobile_used) message.textContent = "This mobile number is already used. Please use a different mobile number.";
-      else if (used.username_used) message.textContent = "This username is already used. Please choose a different username.";
-      else message.textContent = "This email address is already registered. Please use a different email address or log in.";
+      if (used.mobile_used) fieldError("mobile", "Already used — enter a different mobile number.");
+      else if (used.username_used) fieldError("username", "Already used — choose a different username.");
+      else fieldError("email", "Already registered — use a different email or log in.");
       return;
     }
     btn.textContent = "Registering...";
@@ -212,11 +217,11 @@ form.addEventListener("submit", async (e) => {
     console.error("GOV MART registration error:", err);
     const raw = (err && err.message) ? err.message : "Unknown registration error.";
     if (/mobile.*(already|duplicate|unique)|gov_mart_members_mobile_key|mobile.*key/i.test(raw)) {
-      message.textContent = "This mobile number is already used. Please use a different mobile number.";
+      fieldError("mobile", "Already used — enter a different mobile number.");
     } else if (/username.*(already|duplicate|unique)|gov_mart_members_username_key|username.*key/i.test(raw)) {
-      message.textContent = "This username is already used. Please choose a different username.";
+      fieldError("username", "Already used — choose a different username.");
     } else if (/email.*(already|registered|duplicate|unique)|user already registered|already registered/i.test(raw)) {
-      message.textContent = "This email address is already registered. Please use a different email address or log in.";
+      fieldError("email", "Already registered — use a different email or log in.");
     } else if (/duplicate key|unique constraint/i.test(raw)) {
       message.textContent = "One of these details is already used. Please try a different email, mobile number, or username.";
     } else if (/referral|placement|binary|sponsor/i.test(raw)) {
