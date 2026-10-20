@@ -99,12 +99,13 @@ async function loadReferralPreview() {
   btn.disabled = true;
   info.textContent = "Checking referral details...";
   try {
-    const { data, error } = await supabase.rpc("gov_mart_get_referral_preview", {
-      p_referral_code: ref
+    const { data, error } = await supabase.rpc("gov_mart_get_placement_preview", {
+      p_referral_code: ref,
+      p_side: side
     });
     if (error) throw error;
-    const sponsor = Array.isArray(data) ? data[0] : data;
-    if (!sponsor || !sponsor.referral_code) {
+    const preview = Array.isArray(data) ? data[0] : data;
+    if (!preview || !preview.sponsor_referral_code) {
       info.className = "status error";
       info.textContent = "This referral code is invalid. Please ask the member for a valid referral link.";
       btn.disabled = true;
@@ -118,14 +119,14 @@ async function loadReferralPreview() {
     const name = document.createElement("div");
     name.className = "line";
     const strong = document.createElement("strong");
-    strong.textContent = sponsor.full_name || sponsor.username || "GOV MART member";
+    strong.textContent = preview.sponsor_name || preview.sponsor_username || "GOV MART member";
     name.append(strong);
     const user = document.createElement("div");
     user.className = "line";
-    user.textContent = "Username: " + (sponsor.username || "—");
+    user.textContent = "Sponsor username: " + (preview.sponsor_username || "—");
     const placement = document.createElement("div");
     placement.className = "line";
-    placement.textContent = "Placement: " + side.toUpperCase() + " under " + (sponsor.username || sponsor.full_name || "your sponsor");
+    placement.textContent = "Placement: " + side.toUpperCase() + " under " + (preview.placement_parent_username || preview.placement_parent_name || "your sponsor");
     info.append(heading, name, user, placement);
     btn.disabled = false;
   } catch (error) {
