@@ -16,7 +16,7 @@ input[readonly]{background:#f1f5f2}
 button{width:100%;padding:14px;margin-top:22px;border:0;border-radius:9px;background:#13783f;color:white;font-size:17px;font-weight:bold}
 button:disabled{opacity:.55}
 .note{font-size:13px;line-height:1.6;color:#53665a}
-.status{padding:12px;background:#e6f4ea;border-radius:9px;margin-top:15px;overflow-wrap:anywhere}
+.status{padding:12px;background:#e6f4ea;border-radius:9px;margin-top:15px;overflow-wrap:anywhere}.status.error{background:#fde8e8;color:#8b1e1e}.status.success{background:#e6f4ea;color:#14532d}.status .line{margin:4px 0}.status strong{font-weight:800}
 a{color:#13783f}
 </style>
 </head>
@@ -28,7 +28,7 @@ a{color:#13783f}
 <div class="card">
 <h2>Member Registration</h2>
 <p class="note">Join through a valid member referral link.</p>
-<div class="status" id="linkInfo">Checking referral link...</div>
+<div class="status" id="linkInfo" role="status" aria-live="polite">Checking referral link...</div>
 <form id="registerForm">
 <label for="fullName">Full Name</label>
 <input id="fullName" autocomplete="name" maxlength="100" required>
@@ -51,7 +51,7 @@ a{color:#13783f}
 <label for="password">Password</label>
 <input id="password" type="password" minlength="6" autocomplete="new-password" required>
 
-<p class="note">New accounts remain INACTIVE until approved or activated under GOV MART rules.</p>
+<p class="note">Your account will be created with the status assigned by GOV MART. After successful registration, you will be taken to the login page.</p>
 <button id="submitBtn" type="submit">Register</button>
 <p class="note" id="message" role="status" aria-live="polite"></p>
 </form>
@@ -82,16 +82,56 @@ if (cfg && cfg.supabaseUrl && cfg.supabaseKey) {
   btn.disabled = true;
 }
 
-if (ref && ["left", "right"].includes(side)) {
+async function loadReferralPreview() {
+  if (!ref || !["left", "right"].includes(side)) {
+    info.className = "status error";
+    info.textContent = "Open a valid member referral link containing a referral code and LEFT or RIGHT placement.";
+    btn.disabled = true;
+    return;
+  }
   referralInput.value = ref;
   placementInput.value = side.toUpperCase();
-  if (supabase) {
-    info.textContent = "Referral link received. The server will verify the referral code and placement during registration.";
-  }
-} else {
-  info.textContent = "Open a valid referral link containing ?ref=REFERRAL_CODE&side=left or ?ref=REFERRAL_CODE&side=right.";
+  if (!supabase) return;
   btn.disabled = true;
+  info.textContent = "Checking referral details...";
+  try {
+    const { data, error } = await supabase.rpc("gov_mart_get_referral_preview", {
+      p_referral_code: ref
+    });
+    if (error) throw error;
+    const sponsor = Array.isArray(data) ? data[0] : data;
+    if (!sponsor || !sponsor.referral_code) {
+      info.className = "status error";
+      info.textContent = "This referral code is invalid. Please ask the member for a valid referral link.";
+      btn.disabled = true;
+      return;
+    }
+    info.className = "status";
+    info.replaceChildren();
+    const heading = document.createElement("div");
+    heading.className = "line";
+    heading.textContent = "You are joining through:";
+    const name = document.createElement("div");
+    name.className = "line";
+    const strong = document.createElement("strong");
+    strong.textContent = sponsor.full_name || sponsor.username || "GOV MART member";
+    name.append(strong);
+    const user = document.createElement("div");
+    user.className = "line";
+    user.textContent = "Username: " + (sponsor.username || "—");
+    const placement = document.createElement("div");
+    placement.className = "line";
+    placement.textContent = "Your placement: " + side.toUpperCase();
+    info.append(heading, name, user, placement);
+    btn.disabled = false;
+  } catch (error) {
+    console.error("Referral preview error:", error);
+    info.className = "status error";
+    info.textContent = "Could not verify this referral link. Please try again or ask the sponsor for a fresh link.";
+    btn.disabled = true;
+  }
 }
+loadReferralPreview();
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -119,10 +159,28 @@ form.addEventListener("submit", async (e) => {
     message.textContent = "Username must be 4–30 characters using letters, numbers, or underscore.";
     return;
   }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    message.textContent = "Enter a valid email address.";
+    return;
+  }
 
   btn.disabled = true;
-  btn.textContent = "Registering...";
+  btn.textContent = "Checking details...";
   try {
+    const { data: checks, error: checkError } = await supabase.rpc("gov_mart_check_registration_fields", {
+      p_mobile: mobile,
+      p_username: username,
+      p_email: email
+    });
+    if (checkError) throw checkError;
+    const used = Array.isArray(checks) ? checks[0] : checks;
+    if (used?.mobile_used || used?.username_used || used?.email_used) {
+      if (used.mobile_used) message.textContent = "This mobile number is already used. Please use a different mobile number.";
+      else if (used.username_used) message.textContent = "This username is already used. Please choose a different username.";
+      else message.textContent = "This email address is already registered. Please use a different email address or log in.";
+      return;
+    }
+    btn.textContent = "Registering...";
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -142,24 +200,29 @@ form.addEventListener("submit", async (e) => {
     if (error) throw error;
 
     if (data.user && data.session) {
-      message.textContent = "Registration submitted successfully. Your account status is INACTIVE until activation. You can now sign in.";
+      message.textContent = "Registration successful. Redirecting to login...";
+      await supabase.auth.signOut();
+      setTimeout(() => { location.href = "login.html?registered=1"; }, 900);
     } else if (data.user) {
-      message.textContent = "Registration request received. Please check your email for the confirmation link before logging in. Your account remains INACTIVE until activation.";
+      message.textContent = "Registration request received, but email confirmation is required before login. Please check your email.";
     } else {
-      message.textContent = "Registration request submitted. Check your email for next steps.";
+      message.textContent = "Registration request could not be confirmed. Please try again or contact support.";
     }
-    form.reset();
-    referralInput.value = ref;
-    placementInput.value = side.toUpperCase();
   } catch (err) {
     console.error("GOV MART registration error:", err);
     const raw = (err && err.message) ? err.message : "Unknown registration error.";
-    if (/already registered|already exists|duplicate key|unique constraint/i.test(raw)) {
-      message.textContent = "This email, mobile number, or username may already be registered. Check your details or contact support.";
+    if (/mobile.*(already|duplicate|unique)|gov_mart_members_mobile_key|mobile.*key/i.test(raw)) {
+      message.textContent = "This mobile number is already used. Please use a different mobile number.";
+    } else if (/username.*(already|duplicate|unique)|gov_mart_members_username_key|username.*key/i.test(raw)) {
+      message.textContent = "This username is already used. Please choose a different username.";
+    } else if (/email.*(already|registered|duplicate|unique)|user already registered|already registered/i.test(raw)) {
+      message.textContent = "This email address is already registered. Please use a different email address or log in.";
+    } else if (/duplicate key|unique constraint/i.test(raw)) {
+      message.textContent = "One of these details is already used. Please try a different email, mobile number, or username.";
     } else if (/referral|placement|binary|sponsor/i.test(raw)) {
       message.textContent = "Referral code or placement could not be verified. Please use a valid referral link.";
     } else {
-      message.textContent = "Registration failed: " + raw + " Please check the details and try again.";
+      message.textContent = "Registration failed. Please check the details and try again.";
     }
   } finally {
     btn.disabled = false;
