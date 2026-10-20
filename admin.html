@@ -43,8 +43,54 @@ el('refreshWithdrawals').onclick=loadWithdrawals;
 const paymentBucket='gov-mart-payment-qr';let currentQrPath=null;
 async function loadPaymentSettings(){const {data,error}=await sb.from('gov_mart_payment_settings').select('id,account_holder_name,bank_name,account_number,ifsc_code,upi_id,instructions,qr_path,minimum_withdrawal').eq('id',1).maybeSingle();if(error){el('paymentSettingsMsg').textContent='Could not load settings: '+error.message;return}if(!data)return;el('payeeName').value=data.account_holder_name||'';el('bankName').value=data.bank_name||'';el('accountNumber').value=data.account_number||'';el('ifscCode').value=data.ifsc_code||'';el('upiId').value=data.upi_id||'';el('paymentInstructions').value=data.instructions||'';el('minimumWithdrawal').value=Number(data.minimum_withdrawal||300);currentQrPath=data.qr_path||null;if(currentQrPath){const {data:u}=sb.storage.from(paymentBucket).getPublicUrl(currentQrPath);el('qrPreview').src=u.publicUrl;show(el('qrPreviewWrap'))}}
 el('savePaymentSettings').onclick=async()=>{const btn=el('savePaymentSettings'),msg=el('paymentSettingsMsg');btn.disabled=true;msg.textContent='Saving settings...';try{let qrPath=currentQrPath;const file=el('qrFile').files[0];if(file){if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>3*1024*1024)throw new Error('Use PNG/JPG/WEBP image up to 3 MB.');const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';const path='payment-qr.'+ext;const {error:upErr}=await sb.storage.from(paymentBucket).upload(path,file,{upsert:true,contentType:file.type});if(upErr)throw upErr;qrPath=path;const {data:u}=sb.storage.from(paymentBucket).getPublicUrl(path);el('qrPreview').src=u.publicUrl;show(el('qrPreviewWrap'))}const payload={id:1,account_holder_name:el('payeeName').value.trim(),bank_name:el('bankName').value.trim(),account_number:el('accountNumber').value.trim(),ifsc_code:el('ifscCode').value.trim().toUpperCase(),upi_id:el('upiId').value.trim(),instructions:el('paymentInstructions').value.trim(),minimum_withdrawal:Math.max(1,Number(el('minimumWithdrawal').value||300)),qr_path:qrPath,updated_at:new Date().toISOString()};const {error}=await sb.from('gov_mart_payment_settings').upsert(payload,{onConflict:'id'});if(error)throw error;currentQrPath=qrPath;el('qrFile').value='';msg.textContent='Payment settings saved.'}catch(e){msg.textContent='Save failed: '+(e.message||'Unknown error')}finally{btn.disabled=false}};
-async function loadDeposits(){const host=el('depositRequests');host.textContent='Loading deposit requests...';const {data,error}=await sb.from('gov_mart_deposit_requests').select('id,member_id,plan_id,amount,utr_reference,proof_path,status,created_at,admin_note').eq('status','pending').order('created_at',{ascending:true});if(error){host.textContent='Could not load deposits: '+error.message;return}host.replaceChildren();if(!data?.length){host.textContent='No pending deposit requests.';return}for(const d of data){const box=document.createElement('div');box.className='plan';const h=document.createElement('h3');h.textContent='Deposit ₹'+Number(d.amount).toLocaleString('en-IN');const info=document.createElement('p');info.className='muted';info.textContent='Member: '+d.member_id+' · UTR: '+(d.utr_reference||'—')+' · '+new Date(d.created_at).toLocaleString();box.append(h,info);if(d.proof_path){const {data:u,error:signErr}=await sb.storage.from('gov-mart-deposit-proofs').createSignedUrl(d.proof_path,300);if(!signErr&&u?.signedUrl){const a=document.createElement('a');a.href=u.signedUrl;a.target='_blank';a.rel='noopener';a.textContent='View payment proof (5 min link)';box.append(a)}}const note=document.createElement('input');note.placeholder='Admin note (optional)';note.style.marginTop='8px';const ok=document.createElement('button');ok.textContent='Approve';ok.onclick=()=>reviewDeposit(d.id,'approved',note.value,ok,box);const no=document.createElement('button');no.textContent='Reject';no.className='danger';no.onclick=()=>reviewDeposit(d.id,'rejected',note.value,no,box);box.append(note,ok,no);host.append(box)}}
-async function reviewDeposit(id,decision,note,button,box){if(!confirm('Confirm '+decision+'? Verify bank/UPI payment first.'))return;button.disabled=true;const {error}=await sb.rpc('gov_mart_admin_review_deposit',{p_request_id:id,p_decision:decision,p_admin_note:note||null});button.disabled=false;if(error){el('depositMsg').textContent='Review failed: '+error.message;return}el('depositMsg').textContent='Deposit '+decision+'.';box.remove();if(!el('depositRequests').children.length)el('depositRequests').textContent='No pending deposit requests.'}
+async function loadDeposits(){
+ const host=el('depositRequests');host.textContent='Loading deposit records...';
+ const {data,error}=await sb.from('gov_mart_deposit_requests')
+  .select('id,member_id,plan_id,amount,utr_reference,proof_path,status,created_at,admin_note')
+  .order('created_at',{ascending:false}).limit(100);
+ if(error){host.textContent='Could not load deposit records: '+error.message;return}
+ host.replaceChildren();
+ const groups=[
+  {key:'pending',title:'Pending / Processing'},
+  {key:'approved',title:'Approved'},
+  {key:'rejected',title:'Rejected'}
+ ];
+ const normalize=s=>String(s||'pending').toLowerCase();
+ for(const group of groups){
+  const section=document.createElement('section');section.style.marginTop='16px';
+  const heading=document.createElement('h3');heading.textContent=group.title;section.append(heading);
+  const records=(data||[]).filter(d=>group.key==='pending'?['pending','processing','under_review'].includes(normalize(d.status)):normalize(d.status)===group.key);
+  if(!records.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No '+group.title.toLowerCase()+' records.';section.append(empty)}
+  for(const d of records){
+   const box=document.createElement('div');box.className='plan';
+   const top=document.createElement('div');top.className='topline';
+   const h=document.createElement('h3');h.textContent='Deposit ₹'+Number(d.amount).toLocaleString('en-IN');
+   const badge=document.createElement('span');badge.className='pill'+(normalize(d.status)==='approved'?'':normalize(d.status)==='rejected'?' off':'');badge.textContent=normalize(d.status).toUpperCase();
+   top.append(h,badge);
+   const info=document.createElement('p');info.className='muted';info.textContent='Member ID: '+d.member_id+' · UTR: '+(d.utr_reference||'—')+' · Submitted: '+(d.created_at?new Date(d.created_at).toLocaleString():'—');
+   box.append(top,info);
+   if(d.admin_note){const noteText=document.createElement('p');noteText.className='muted';noteText.textContent='Admin note: '+d.admin_note;box.append(noteText)}
+   if(d.proof_path){const {data:u,error:signErr}=await sb.storage.from('gov-mart-deposit-proofs').createSignedUrl(d.proof_path,300);if(!signErr&&u?.signedUrl){const link=document.createElement('a');link.href=u.signedUrl;link.target='_blank';link.rel='noopener';link.textContent='View payment proof (5 min link)';box.append(link)}}
+   if(['pending','processing','under_review'].includes(normalize(d.status))){
+    const note=document.createElement('input');note.placeholder='Admin note (optional)';note.style.marginTop='8px';
+    const ok=document.createElement('button');ok.textContent='Approve';ok.onclick=()=>reviewDeposit(d.id,'approved',note.value,ok,box);
+    const no=document.createElement('button');no.textContent='Reject';no.className='danger';no.onclick=()=>reviewDeposit(d.id,'rejected',note.value,no,box);
+    box.append(note,ok,no);
+   }
+   section.append(box);
+  }
+  host.append(section);
+ }
+}
+async function reviewDeposit(id,decision,note,button,box){
+ if(!confirm('Confirm '+decision+'? Verify bank/UPI payment first.'))return;
+ button.disabled=true;el('depositMsg').textContent='Saving review...';
+ const {error}=await sb.rpc('gov_mart_admin_review_deposit',{p_request_id:id,p_decision:decision,p_admin_note:note||null});
+ button.disabled=false;
+ if(error){el('depositMsg').textContent='Review failed: '+error.message;return}
+ el('depositMsg').textContent='Deposit '+decision+'.';
+ await loadDeposits();
+}
 el('refreshDeposits').onclick=loadDeposits;
 el('activatePlan').addEventListener('change',()=>{const o=el('activatePlan').selectedOptions[0];if(o&&o.dataset.amount)el('activateAmount').value=o.dataset.amount});
 el('activateSubmit').onclick=async()=>{const btn=el('activateSubmit'),out=el('activateMsg');const member=el('activateMember').value.trim(),plan=el('activatePlan').value,amount=Number(el('activateAmount').value),mode=el('activateMode').value,reference=el('activateReference').value.trim(),note=el('activateNote').value.trim();if(!member||!plan||!Number.isFinite(amount)||amount<=0){out.textContent='Enter member username/UUID, active plan and valid paid amount.';return}if(!confirm('Confirm payment has been received and activate this member?'))return;btn.disabled=true;out.textContent='Activating plan...';const {error}=await sb.rpc('gov_mart_admin_direct_activate',{p_member_lookup:member,p_plan_id:plan,p_amount:amount,p_payment_mode:mode,p_payment_reference:reference||null,p_admin_note:note||null});btn.disabled=false;if(error){out.textContent='Activation failed: '+error.message;return}out.textContent='Plan activated and payment recorded successfully.';el('activateMember').value='';el('activateReference').value='';el('activateNote').value='';await Promise.all([loadDashboard(),loadUsers()])};
