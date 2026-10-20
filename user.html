@@ -68,8 +68,36 @@ async function loadBinaryTree(){
    if(path.length>1){const controls=document.createElement('div');controls.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px';const back=document.createElement('button');back.className='btn secondary';back.textContent='← Back one level';back.onclick=()=>{path.pop();render()};const home=document.createElement('button');home.className='btn secondary';home.textContent='Back to my tree';home.onclick=()=>{path.splice(1);render()};controls.append(back,home);root.append(controls)}
    const top=document.createElement('button');top.type='button';top.className='tree-node root';const nm=document.createElement('b');nm.textContent=current.full_name||current.username||'Member';const meta=document.createElement('small');meta.textContent=(current.username?'@'+current.username+' · ':'')+(path.length===1?'YOU · ':'SELECTED MEMBER · ')+String(current.account_status||'unknown').toUpperCase()+' · Level '+(current.level_no||0);top.append(nm,meta);root.append(top);
    const direct=children.get(String(current.member_id))||[];const subtree=descendantsOf(current);const leftList=direct.filter(x=>String(x.binary_position||'').toLowerCase()==='left'),rightList=direct.filter(x=>String(x.binary_position||'').toLowerCase()==='right');
-   function makeNode(m,side,level){const wrap=document.createElement('div');const btn=document.createElement('button');btn.type='button';btn.className='tree-node';const name=document.createElement('b');name.textContent=m.full_name||m.username||'Member';const info=document.createElement('small');info.textContent=(m.username?'@'+m.username+' · ':'')+String(m.binary_position||side||'SIDE').toUpperCase()+' · '+String(m.account_status||'unknown').toUpperCase()+' · Level '+level;btn.append(name,info);btn.onclick=()=>{const kids=children.get(String(m.member_id))||[];if(!kids.length){toast('No members below this member yet.');return}path.push({...m,level_no:level});render()};wrap.append(btn);const kids=children.get(String(m.member_id))||[];if(kids.length){const hint=document.createElement('div');hint.className='small';hint.style.margin='2px 0 2px 10px';hint.textContent=kids.length+' direct child member(s) · tap member to open their tree';wrap.append(hint)}return wrap}
-   function draw(host,list,side){host.replaceChildren();if(!list.length){const empty=document.createElement('div');empty.className='empty';empty.innerHTML='No members on this side.<br>Count: 0';host.append(empty);return}for(const m of list)host.append(makeNode(m,side,(current.level_no||0)+1));}
+   function makeNode(m,side,level,depthFromCurrent=1){
+     const wrap=document.createElement('div');
+     wrap.style.cssText='margin:10px 0 10px '+Math.min(depthFromCurrent-1,2)*14+'px;padding-left:'+(depthFromCurrent>1?'12px':'0')+';border-left:'+(depthFromCurrent>1?'2px solid #dbe4ee':'none');
+     const btn=document.createElement('button');btn.type='button';btn.className='tree-node';
+     btn.style.cssText='width:100%;text-align:left;cursor:pointer;';
+     const name=document.createElement('b');name.textContent=m.full_name||m.username||'Member';
+     const info=document.createElement('small');info.textContent=(m.username?'@'+m.username+' · ':'')+String(m.binary_position||side||'SIDE').toUpperCase()+' · '+String(m.account_status||'unknown').toUpperCase()+' · Level '+level;
+     btn.append(name,info);
+     btn.onclick=()=>{path.push({...m,level_no:level});render()};
+     wrap.append(btn);
+     const kids=children.get(String(m.member_id))||[];
+     if(kids.length && depthFromCurrent<3){
+       const hint=document.createElement('div');hint.className='small';hint.style.cssText='margin:5px 0 5px 8px;color:#64748b';hint.textContent=kids.length+' direct child member(s)';wrap.append(hint);
+       const kidGrid=document.createElement('div');kidGrid.style.cssText='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:6px 0 0 8px';
+       const leftKids=kids.filter(x=>String(x.binary_position||'').toLowerCase()==='left');
+       const rightKids=kids.filter(x=>String(x.binary_position||'').toLowerCase()==='right');
+       for(const child of [...leftKids,...rightKids])kidGrid.append(makeNode(child,child.binary_position||side,level+1,depthFromCurrent+1));
+       if(kidGrid.childElementCount)wrap.append(kidGrid);
+     } else if(kids.length){
+       const hint=document.createElement('div');hint.className='small';hint.style.cssText='margin:5px 0 5px 8px;color:#64748b';hint.textContent=kids.length+' direct child member(s) · tap this member to view their tree';wrap.append(hint);
+     }
+     return wrap;
+   }
+   function draw(host,list,side){
+     host.replaceChildren();
+     if(!list.length){const empty=document.createElement('div');empty.className='empty';empty.innerHTML='No members on this side.<br>Count: 0';host.append(empty);return}
+     const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start';
+     for(const m of list)grid.append(makeNode(m,side,(current.level_no||0)+1,1));
+     host.append(grid);
+   }
    draw(left,leftList,'left');draw(right,rightList,'right');
    msg.textContent='Tree loaded · Left branch: '+leftList.length+' · Right branch: '+rightList.length+' · Descendants under this member: '+subtree.length;
  }
