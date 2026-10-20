@@ -54,7 +54,11 @@ else{
    const {data:profile,error:profileError}=await supabase.from('gov_mart_members').select('full_name,username,account_status').eq('id',user.id).maybeSingle();
    if(profileError)throw profileError;
    if(!profile)throw new Error('Your GOV MART member profile was not found. Please contact support.');
-   message.textContent='Login successful. Opening your dashboard...';window.location.href='user.html';
+   // Route authorized administrators to admin.html; normal members go to user.html.
+   const {data:adminRecord,error:adminError}=await supabase.from('gov_mart_admins').select('user_id').eq('user_id',user.id).maybeSingle();
+   if(adminError)throw new Error('Login succeeded, but admin access could not be checked: '+adminError.message);
+   message.textContent=adminRecord?'Admin login successful. Opening Admin Panel...':'Login successful. Opening your dashboard...';
+   window.location.replace(adminRecord?'admin.html':'user.html');
   }catch(error){
    const raw=error?.message||'Unknown login error.';
    if(/invalid login credentials|invalid email or password|user not found|invalid username or password/i.test(raw))message.textContent='Username or password is incorrect. Please check and try again.';
