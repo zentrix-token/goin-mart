@@ -176,7 +176,8 @@ el('saveStoreBtn').onclick=async()=>{
  out.textContent=editingStoreId?'Store updated.':'Store created and linked.';
  clearStoreForm();await loadStores();
 };
-\nfunction loadSectionData(id){if(id==='dashboard')loadDashboard();if(id==='users')loadUsers();if(id==='plansSection')loadPlans();if(id==='depositAdmin')loadDeposits();if(id==='activationAdmin')loadActivationPlans();if(id==='recordsAdmin')loadRecords();if(id==='withdrawalAdmin')loadWithdrawals();if(id==='paymentSettings')loadPaymentSettings();if(id==='storesAdmin')loadStores()}
+
+function loadSectionData(id){if(id==='dashboard')loadDashboard();if(id==='users')loadUsers();if(id==='plansSection')loadPlans();if(id==='depositAdmin')loadDeposits();if(id==='activationAdmin')loadActivationPlans();if(id==='recordsAdmin')loadRecords();if(id==='withdrawalAdmin')loadWithdrawals();if(id==='paymentSettings')loadPaymentSettings();if(id==='storesAdmin')loadStores()}
 function activateSection(id,writeHistory=false){const ids=['dashboard','users','plansSection','paymentSettings','depositAdmin','activationAdmin','recordsAdmin','withdrawalAdmin','storesAdmin'];if(!ids.includes(id))id='dashboard';ids.forEach(x=>{if(el(x))hide(el(x))});show(el(id));document.querySelectorAll('#adminNav button').forEach(b=>b.classList.toggle('active',b.dataset.section===id));if(writeHistory&&location.hash!=='#'+id)history.pushState({section:id},'', '#'+id);loadSectionData(id)}
 document.querySelectorAll('#adminNav button').forEach(b=>b.addEventListener('click',()=>activateSection(b.dataset.section,true)));
 function restoreSectionFromUrl(){const id=decodeURIComponent(location.hash.slice(1));activateSection(id||'dashboard',false)}
