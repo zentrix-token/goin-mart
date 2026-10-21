@@ -20,7 +20,17 @@ import{createClient}from'https://esm.sh/@supabase/supabase-js@2';
 const cfg=window.GOV_MART_CONFIG,$=id=>document.getElementById(id),money=n=>'₹'+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 let sb,session,store,products=[],cart=new Map(),member=null;
 const show=id=>$(id).classList.remove('hidden'),hide=id=>$(id).classList.add('hidden'),say=(id,t)=>$(id).textContent=t;
-async function init(){hide('loading');if(!cfg?.url||!cfg?.anonKey){show('loginCard');say('loginMsg','config.js must provide GOV_MART_CONFIG.url and anonKey.');$('loginBtn').disabled=true;return}sb=createClient(cfg.url,cfg.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const{data:{session:s}}=await sb.auth.getSession();session=s;if(!s){show('loginCard');return}await openStore()}
+async function init(){
+ hide('loading');
+ const supabaseUrl=cfg?.url||cfg?.supabaseUrl;
+ const supabaseKey=cfg?.anonKey||cfg?.supabaseKey||cfg?.supabaseAnonKey;
+ if(!supabaseUrl||!supabaseKey){
+   show('loginCard');
+   say('loginMsg','config.js must provide GOV_MART_CONFIG.supabaseUrl and supabaseKey (or url and anonKey).');
+   $('loginBtn').disabled=true;
+   return;
+ }
+ sb=createClient(supabaseUrl,supabaseKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const{data:{session:s}}=await sb.auth.getSession();session=s;if(!s){show('loginCard');return}await openStore()}
 async function openStore(){hide('loginCard');show('app');$('storeIdentity').textContent=session?.user?.email||'Signed in';const{data,error}=await sb.from('gov_mart_stores').select('id,store_code,store_name,is_active').eq('auth_user_id',session.user.id).maybeSingle();if(error||!data||!data.is_active){say('appMsg',error?'Store SQL/RLS setup is not installed yet: '+error.message:'This login is not linked to an active store. Ask admin to assign/enable it.');$('completeOrderBtn').disabled=true;return}store=data;$('storeName').textContent=data.store_name;$('storeCode').textContent=data.store_code;say('appMsg','Store verified. Loading products…');await loadProducts();await loadOrders()}
 $('loginBtn').onclick=async()=>{const email=$('loginEmail').value.trim(),password=$('loginPassword').value;if(!email||!password){say('loginMsg','Enter store email and password.');return}$('loginBtn').disabled=true;say('loginMsg','Signing in…');const{data,error}=await sb.auth.signInWithPassword({email,password});$('loginBtn').disabled=false;if(error){say('loginMsg','Login failed: '+error.message);return}session=data.session;await openStore()};
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
