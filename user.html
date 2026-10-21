@@ -31,6 +31,19 @@
   #team .card.panel:has(#binaryTreeRoot) .tree-click-node small { font-size:11px; line-height:1.35; }
 }
 
+
+/* Responsive profile and binary-tree polish */
+@media(max-width:680px){
+  #app.layout{display:block!important;width:100%;max-width:100%;overflow-x:hidden}
+  #app main{display:block!important;width:100%;max-width:100%;padding:14px 12px 100px}
+  #app aside{display:none!important}
+  #profile .card{width:100%;min-width:0;padding:14px}
+  #profile .fields{display:grid;grid-template-columns:minmax(0,1fr)!important}
+  #profile .field,#profile input{min-width:0;max-width:100%}
+  #profile .profile-input{width:100%;font-size:16px}
+  #profile .sectionhead{align-items:flex-start;flex-wrap:wrap}
+  #team .tree-side{overflow-x:auto;max-width:100%}
+}
 </style></head><body>
 <section id="loading" class="card" style="max-width:500px;margin:50px auto"><h2>GOV MART</h2><p class="mut">Checking your secure session...</p></section>
 <section id="signedOut" class="card hidden" style="max-width:500px;margin:50px auto"><h2>Login required</h2><p class="mut" id="signedOutMessage">Please sign in with your GOV MART member account.</p><button class="btn" onclick="location.href='login.html'">Go to Login</button> <button class="btn secondary" onclick="location.href='index.html'">Home</button></section>
@@ -146,7 +159,7 @@ async function loadBinaryTree(){
  const self={member_id:currentMemberId,parent_id:null,full_name:document.getElementById('welcomeName').textContent,username:document.getElementById('welcomeUser').textContent,account_status:document.getElementById('statusValue').textContent,level_no:0,binary_position:'ROOT'};
  const byId=new Map(rows.map(m=>[String(m.member_id),m]));
  const children=new Map();
- for(const m of rows){const k=String(m.parent_id||'root');if(!children.has(k))children.set(k,[]);children.get(k).push(m)}
+ for(const m of rows){const k=String(m.parent_id||m.binary_parent_id||'root');if(!children.has(k))children.set(k,[]);children.get(k).push(m)}
  const path=[self];
  function descendantsOf(member){const out=[],seen=new Set([String(member.member_id)]),q=[...(children.get(String(member.member_id))||[])];while(q.length){const x=q.shift(),id=String(x.member_id);if(seen.has(id))continue;seen.add(id);out.push(x);q.push(...(children.get(id)||[]));if(out.length>5000)break}return out}
   function descendantsOfSide(member,side){const seen=new Set([String(member.member_id)]);let count=0;const queue=(children.get(String(member.member_id))||[]).filter(x=>String(x.binary_position||'').toLowerCase()===side);while(queue.length){const x=queue.shift(),id=String(x.member_id);if(seen.has(id))continue;seen.add(id);count++;queue.push(...(children.get(id)||[]));if(seen.size>5000)break}return count}
@@ -180,8 +193,8 @@ async function loadBinaryTree(){
        const rh=document.createElement('div');rh.className='binary-side-label';rh.textContent='RIGHT';rightCol.append(rh);
        const leftKids=kids.filter(x=>String(x.binary_position||'').toLowerCase()==='left');
        const rightKids=kids.filter(x=>String(x.binary_position||'').toLowerCase()==='right');
-       if(!leftKids.length){const e=document.createElement('div');e.className='binary-empty';e.textContent='Count: 0';leftCol.append(e)}
-       if(!rightKids.length){const e=document.createElement('div');e.className='binary-empty';e.textContent='Count: 0';rightCol.append(e)}
+       if(!leftKids.length){const e=document.createElement('div');e.className='binary-empty';e.textContent='No member on left side yet';leftCol.append(e)}
+       if(!rightKids.length){const e=document.createElement('div');e.className='binary-empty';e.textContent='No member on right side yet';rightCol.append(e)}
        leftKids.forEach(child=>leftCol.append(makeNode(child,'left',level+1,depth+1)));
        rightKids.forEach(child=>rightCol.append(makeNode(child,'right',level+1,depth+1)));
        childArea.append(leftCol,rightCol);wrap.append(childArea);
