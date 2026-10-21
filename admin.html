@@ -27,30 +27,8 @@
 <div id="storesList"><p class="muted">Loading franchise stores...</p></div>
 </section>
 <section class="card"><p class="muted">Never share your password or Supabase secret/service-role key.</p><a href="index.html">Back to Home</a></section>
-<script src="config.js"></script>
-<script>
-/* Visible safety net: this script runs even if the external module import fails. */
-window.__govAdminBootStarted = false;
-window.__govAdminWatchdog = setTimeout(function () {
-  var panel = document.getElementById('checking');
-  if (panel && !panel.classList.contains('hidden') && !window.__govAdminBootStarted) {
-    panel.innerHTML = '<h2 style="color:#a92b2b">Admin script did not start</h2><p class="muted">The Supabase JavaScript module may be blocked or failed to load. Check internet connection, then refresh. If it repeats, the module CDN or browser content blocker may be blocking the script.</p><button onclick="location.reload()">Retry</button><button class="secondary" onclick="location.href=\'login.html\'">Go to Login</button>';
-  }
-}, 10000);
-</script>
-<script type="module">
-let createClient;
-try {
-  ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
-} catch (primaryImportError) {
-  try {
-    ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2'));
-  } catch (fallbackImportError) {
-    console.error('Supabase JS module failed to load from both CDNs.', primaryImportError, fallbackImportError);
-    throw new Error('Supabase JavaScript module failed to load from both CDNs. Check internet/CDN access and refresh.');
-  }
-}
-window.__govAdminBootStarted = true; clearTimeout(window.__govAdminWatchdog);
+<script src="config.js"></script><script type="module">
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 const cfg=window.GOV_MART_CONFIG,checking=document.getElementById('checking'),denied=document.getElementById('denied'),app=document.getElementById('app'),msg=document.getElementById('msg'),plans=document.getElementById('plans');let sb=null,editId=null;
 const hide=x=>x.classList.add('hidden'),show=x=>x.classList.remove('hidden'),say=x=>msg.textContent=x;
 const el=id=>document.getElementById(id);
@@ -182,68 +160,5 @@ document.querySelectorAll('#adminNav button').forEach(b=>b.addEventListener('cli
 function restoreSectionFromUrl(){const id=decodeURIComponent(location.hash.slice(1));activateSection(id||'dashboard',false)}
 window.addEventListener('popstate',restoreSectionFromUrl);window.addEventListener('hashchange',restoreSectionFromUrl);
 el('logoutTop').onclick=async()=>{const {error}=await sb.auth.signOut();if(error)el('dashboardMsg').textContent=error.message;else location.href='admin-login.html'};
-async function init(){
-  const checkingEl = el('checking');
-  const withTimeout = (promise, label, ms=12000) => Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(label+' timed out after '+Math.round(ms/1000)+' seconds. Check internet/Supabase status and try again.')), ms))
-  ]);
-  try {
-    if(!cfg?.supabaseUrl || !cfg?.supabaseKey){
-      checkingEl.innerHTML='<h2>Supabase config missing</h2><p class="muted">config.js must define GOV_MART_CONFIG.supabaseUrl and GOV_MART_CONFIG.supabaseKey.</p>';
-      return;
-    }
-    checkingEl.querySelector('h2').textContent='Checking saved login...';
-    sb=createClient(cfg.supabaseUrl,cfg.supabaseKey,{
-      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
-    });
-    const {data,error}=await withTimeout(sb.auth.getSession(),'Supabase session check');
-    if(error) throw error;
-    const user=data?.session?.user;
-    if(!user){
-      hide(checkingEl);show(el('denied'));
-      el('deniedText').textContent='No active login session found. Please sign in with the authorized GOV MART admin account.';
-      return;
-    }
-    checkingEl.querySelector('h2').textContent='Verifying administrator account...';
-    checkingEl.querySelector('p').textContent='Checking the authorized admin list in Supabase.';
-    const result=await withTimeout(
-      sb.from('gov_mart_admins').select('user_id').eq('user_id',user.id).maybeSingle(),
-      'Admin verification request'
-    );
-    const {data:admin,error:ae}=result;
-    if(ae){
-      checkingEl.innerHTML='';
-      const h=document.createElement('h2');h.style.color='#a92b2b';h.textContent='Admin verification failed';
-      const p=document.createElement('p');p.className='muted';p.textContent=ae.message+' — check that gov_mart_admins has a SELECT policy allowing the signed-in admin to read their own user_id.';
-      const b=document.createElement('button');b.textContent='Retry';b.onclick=()=>location.reload();
-      checkingEl.append(h,p,b);return;
-    }
-    if(!admin){
-      hide(checkingEl);show(el('denied'));
-      el('deniedText').textContent='This signed-in account ('+(user.email||user.id)+') is not listed in gov_mart_admins. Add the correct Auth User UUID to that table.';
-      return;
-    }
-    hide(checkingEl);show(el('adminNav'));
-    const initial=decodeURIComponent(location.hash.slice(1));
-    activateSection(initial||'dashboard',false);
-    await Promise.allSettled([
-      loadDashboard(),loadPlans(),loadActivationPlans(),loadWithdrawals(),
-      loadPaymentSettings(),loadDeposits(),loadStores()
-    ]);
-  } catch(e) {
-    console.error('GOV MART admin init error:',e);
-    checkingEl.innerHTML='';
-    const h=document.createElement('h2');h.style.color='#a92b2b';h.textContent='Admin page could not finish loading';
-    const p=document.createElement('p');p.className='muted';p.textContent=(e?.message||String(e))+' If the error mentions a timeout, refresh once and check Supabase status/network.';
-    const b=document.createElement('button');b.textContent='Retry';b.onclick=()=>location.reload();
-    const login=document.createElement('button');login.className='secondary';login.textContent='Go to Login';login.onclick=()=>location.href='login.html';
-    checkingEl.append(h,p,b,login);
-  }
-}
-init().catch(e=>{
-  console.error(e);
-  const panel=el('checking');
-  panel.textContent='Admin initialization failed: '+(e?.message||String(e));
-});
+async function init(){if(!cfg?.supabaseUrl||!cfg?.supabaseKey){checking.textContent='Supabase config.js missing or incomplete.';return}sb=createClient(cfg.supabaseUrl,cfg.supabaseKey);const {data,error}=await sb.auth.getSession();if(error){checking.textContent=error.message;return}const user=data.session?.user;if(!user){hide(checking);show(denied);el('deniedText').textContent='Log in with the authorized GOV MART admin account, then reopen this page.';return}const {data:admin,error:ae}=await sb.from('gov_mart_admins').select('user_id').eq('user_id',user.id).maybeSingle();if(ae){checking.textContent='Admin verification failed: '+ae.message;return}if(!admin){hide(checking);show(denied);el('deniedText').textContent='This account is not an authorized GOV MART administrator.';return}hide(checking);show(el('adminNav'));const initial=decodeURIComponent(location.hash.slice(1));activateSection(initial||'dashboard',false);await Promise.all([loadDashboard(),loadPlans(),loadActivationPlans(),loadWithdrawals(),loadPaymentSettings(),loadDeposits()]);}init().catch(e=>checking.textContent='Error: '+(e?.message||'Unknown error'));
 </script></body></html>
