@@ -160,5 +160,58 @@ document.querySelectorAll('#adminNav button').forEach(b=>b.addEventListener('cli
 function restoreSectionFromUrl(){const id=decodeURIComponent(location.hash.slice(1));activateSection(id||'dashboard',false)}
 window.addEventListener('popstate',restoreSectionFromUrl);window.addEventListener('hashchange',restoreSectionFromUrl);
 el('logoutTop').onclick=async()=>{const {error}=await sb.auth.signOut();if(error)el('dashboardMsg').textContent=error.message;else location.href='admin-login.html'};
-async function init(){if(!cfg?.supabaseUrl||!cfg?.supabaseKey){checking.textContent='Supabase config.js missing or incomplete.';return}sb=createClient(cfg.supabaseUrl,cfg.supabaseKey);const {data,error}=await sb.auth.getSession();if(error){checking.textContent=error.message;return}const user=data.session?.user;if(!user){hide(checking);show(denied);el('deniedText').textContent='Log in with the authorized GOV MART admin account, then reopen this page.';return}const {data:admin,error:ae}=await sb.from('gov_mart_admins').select('user_id').eq('user_id',user.id).maybeSingle();if(ae){checking.textContent='Admin verification failed: '+ae.message;return}if(!admin){hide(checking);show(denied);el('deniedText').textContent='This account is not an authorized GOV MART administrator.';return}hide(checking);show(el('adminNav'));const initial=decodeURIComponent(location.hash.slice(1));activateSection(initial||'dashboard',false);await Promise.all([loadDashboard(),loadPlans(),loadActivationPlans(),loadWithdrawals(),loadPaymentSettings(),loadDeposits()]);}init().catch(e=>checking.textContent='Error: '+(e?.message||'Unknown error'));
+async function init(){
+  const checkingEl = el('checking');
+  const timeoutId = setTimeout(()=>{
+    if(checkingEl && !checkingEl.classList.contains('hidden')){
+      checkingEl.innerHTML = '<h2 style="color:#a92b2b">Loading stuck >8 sec</h2><p class="muted">Possible causes:<br>1. config.js 404 (open DevTools > Network check)<br>2. gov_mart_admins RLS blocking read<br>3. You opened as admin.ht not admin.html<br>4. Supabase ESM import blocked<br><br><button onclick="location.reload()">Retry</button> <button class="secondary" onclick="localStorage.clear(); location.href=\'admin-login.html\'">Clear Session & Re-Login</button></p>';
+    }
+  }, 8000);
+  try{
+    if(!cfg?.supabaseUrl||!cfg?.supabaseKey){
+      clearTimeout(timeoutId);
+      checkingEl.innerHTML='<h2>config.js missing</h2><p class="muted">supabaseUrl/Key not found. Check ./config.js path.</p>';
+      return;
+    }
+    sb=createClient(cfg.supabaseUrl,cfg.supabaseKey);
+    const {data,error}=await sb.auth.getSession();
+    if(error){
+      clearTimeout(timeoutId);
+      checkingEl.innerHTML='<h2>Auth Error</h2><p class="muted">'+error.message+'</p><button onclick="localStorage.clear(); location.href=\'admin-login.html\'">Login Again</button>';
+      return;
+    }
+    const user=data.session?.user;
+    if(!user){
+      clearTimeout(timeoutId);
+      hide(checkingEl);show(el('denied'));
+      el('deniedText').textContent='Log in with the authorized GOV MART admin account, then reopen this page.';
+      return;
+    }
+    const {data:admin,error:ae}=await sb.from('gov_mart_admins').select('user_id').eq('user_id',user.id).maybeSingle();
+    if(ae){
+      clearTimeout(timeoutId);
+      checkingEl.innerHTML='<h2>Admin verification failed</h2><p class="muted">'+ae.message+'<br><br>Fix: Supabase > Table Editor > gov_mart_admins > Disable RLS or add policy: allow SELECT for authenticated users.</p><button onclick="location.reload()">Retry</button>';
+      return;
+    }
+    if(!admin){
+      clearTimeout(timeoutId);
+      hide(checkingEl);show(el('denied'));
+      el('deniedText').textContent='This account ('+(user.email||user.id)+') is not in gov_mart_admins table. Add it.';
+      return;
+    }
+    clearTimeout(timeoutId);
+    hide(checkingEl);show(el('adminNav'));
+    const initial=decodeURIComponent(location.hash.slice(1));
+    activateSection(initial||'dashboard',false);
+    await Promise.all([loadDashboard(),loadPlans(),loadActivationPlans(),loadWithdrawals(),loadPaymentSettings(),loadDeposits(), typeof loadStores==='function'?loadStores():Promise.resolve()]);
+  }catch(e){
+    clearTimeout(timeoutId);
+    console.error(e);
+    el('checking').innerHTML='<h2>Error</h2><p class="muted">'+(e?.message||e)+'</p><pre class="muted">'+(e?.stack||'')+'</pre>';
+  }
+}
+init().catch(e=>{
+  console.error(e);
+  el('checking').innerHTML='<h2>Init Crash</h2><p class="muted">'+(e?.message||e)+'</p>';
+});
 </script></body></html>
