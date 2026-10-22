@@ -46,7 +46,7 @@
 </div>
 <p class="muted" id="companyWalletMsg" role="status">Loading company wallet...</p>
 <div id="companyWalletRows"><p class="muted">Loading overflow records...</p></div>
-<h3 style="margin-top:28px">Online Orders from user.html</h3><p class="muted">Member website orders, separate from store counter bills.</p><div class="stats"><div class="stat"><div class="label">Today online sales</div><div class="num" id="onlineSalesToday">₹0</div></div><div class="stat"><div class="label">Today online orders</div><div class="num" id="onlineOrdersToday">0</div></div><div class="stat"><div class="label">All-time online sales</div><div class="num" id="onlineSalesAll">₹0</div></div><div class="stat"><div class="label">All-time online orders</div><div class="num" id="onlineOrdersAll">0</div></div></div><div id="onlineOrdersMsg" class="muted" role="status"></div><div id="onlineOrdersList"><p class="muted">Loading online orders...</p></div>
+<h3 style="margin-top:28px">Online Orders from user.html</h3><p class="muted">Member website orders, separate from store counter bills. Terminal orders (Delivered / Cancelled) move to their own lists and cannot be processed again.</p><div class="stats"><div class="stat"><div class="label">Today online sales (excluding cancelled)</div><div class="num" id="onlineSalesToday">₹0</div></div><div class="stat"><div class="label">Today online orders</div><div class="num" id="onlineOrdersToday">0</div></div><div class="stat"><div class="label">All-time online sales (excluding cancelled)</div><div class="num" id="onlineSalesAll">₹0</div></div><div class="stat"><div class="label">All-time online orders</div><div class="num" id="onlineOrdersAll">0</div></div></div><div id="onlineOrdersMsg" class="muted" role="status"></div><h3>Processing / Dispatch Orders</h3><div id="onlineOrdersList"><p class="muted">Loading active online orders...</p></div><h3 style="margin-top:24px">Delivered Orders</h3><div id="onlineDeliveredList"><p class="muted">Loading delivered orders...</p></div><h3 style="margin-top:24px">Cancelled Orders</h3><div id="onlineCancelledList"><p class="muted">Loading cancelled orders...</p></div>
 </section>
 <section class="card hidden" id="productsAdmin">
 <h2>Product Management & Excel Upload</h2>
@@ -337,57 +337,75 @@ async function loadCompanyWallet(){
 }
 
 function renderOnlineOrders(){
- const host=el('onlineOrdersList'), msg=el('onlineOrdersMsg');
+ const host=el('onlineOrdersList'), deliveredHost=el('onlineDeliveredList'), cancelledHost=el('onlineCancelledList'), msg=el('onlineOrdersMsg');
+ if(!host||!deliveredHost||!cancelledHost)return;
  const today=localDateKey(new Date());
- const all=cachedOnlineOrders.filter(o=>o.order_status!=='cancelled');
- const todays=all.filter(o=>localDateKey(o.created_at)===today);
+ const allNonCancelled=cachedOnlineOrders.filter(o=>!['cancelled','canceled'].includes(String(o.order_status||'').toLowerCase()));
+ const todays=allNonCancelled.filter(o=>localDateKey(o.created_at)===today);
  el('onlineSalesToday').textContent=gmMoney(todays.reduce((s,o)=>s+Number(o.total_amount||0),0));
  el('onlineOrdersToday').textContent=String(todays.length);
- el('onlineSalesAll').textContent=gmMoney(all.reduce((s,o)=>s+Number(o.total_amount||0),0));
- el('onlineOrdersAll').textContent=String(all.length);
- host.replaceChildren();
- if(!cachedOnlineOrders.length){host.textContent='No online orders found in gov_mart_orders.';msg.textContent='The online order table returned no records.';return}
- for(const o of cachedOnlineOrders){
+ el('onlineSalesAll').textContent=gmMoney(allNonCancelled.reduce((s,o)=>s+Number(o.total_amount||0),0));
+ el('onlineOrdersAll').textContent=String(allNonCancelled.length);
+ host.replaceChildren(); deliveredHost.replaceChildren(); cancelledHost.replaceChildren();
+ if(!cachedOnlineOrders.length){
+  host.textContent='No processing or dispatch orders.';
+  deliveredHost.textContent='No delivered orders.';
+  cancelledHost.textContent='No cancelled orders.';
+  msg.textContent='No online orders found in gov_mart_orders.';return;
+ }
+ const norm=o=>String(o.order_status||'pending').toLowerCase().trim();
+ const isCancelled=o=>['cancelled','canceled'].includes(norm(o));
+ const isDelivered=o=>norm(o)==='delivered';
+ const active=cachedOnlineOrders.filter(o=>!isCancelled(o)&&!isDelivered(o));
+ const delivered=cachedOnlineOrders.filter(isDelivered);
+ const cancelled=cachedOnlineOrders.filter(isCancelled);
+ function renderCard(o,terminal){
   const box=document.createElement('div');box.className='plan';
   const title=document.createElement('strong');title.textContent=(o.order_number||o.id)+' · '+gmMoney(o.total_amount);
+  const raw=norm(o);
+  const label=['shipped','dispatch','dispatched'].includes(raw)?'DISPATCHED':(['pending','confirmed','packed','processing'].includes(raw)?'PROCESSING':raw.toUpperCase());
   const details=document.createElement('p');details.className='muted';
-  details.textContent='Member ID: '+(o.member_id||'—')+' · '+(o.contact_mobile||'No mobile')+' · '+new Date(o.created_at).toLocaleString()+' · '+String(o.payment_method||'—').toUpperCase()+' · Payment: '+String(o.payment_status||'—').toUpperCase()+' · Order: '+String(o.order_status||'—').toUpperCase();
+  details.textContent='Member ID: '+(o.member_id||'—')+' · '+(o.contact_mobile||'No mobile')+' · '+new Date(o.created_at).toLocaleString()+' · '+String(o.payment_method||'—').toUpperCase()+' · Payment: '+String(o.payment_status||'—').toUpperCase()+' · Order: '+label;
   const address=document.createElement('p');address.className='muted';address.textContent='Delivery: '+(o.delivery_address||'—');
   const items=cachedOnlineOrderItems.filter(i=>String(i.order_id)===String(o.id));
   const itemLine=document.createElement('p');itemLine.className='muted';itemLine.textContent=items.length?'Items: '+items.map(i=>(i.product_name||'Product')+' × '+i.quantity+' ('+gmMoney(i.line_total)+')').join(' · '):'Order items not returned.';
   box.append(title,details,address,itemLine);
+  if(terminal){
+   const note=document.createElement('p');note.className='muted';note.textContent=isCancelled(o)?'Cancelled — closed; this order cannot be processed again.':'Delivered — completed; this order cannot be processed again.';
+   box.append(note);return box;
+  }
   const controls=document.createElement('div');controls.className='toolbar';
   const statusSelect=document.createElement('select');
-  for(const status of ['pending','confirmed','packed','shipped','delivered','cancelled']){
-   const option=document.createElement('option');option.value=status;option.textContent=status.toUpperCase();if(status===o.order_status)option.selected=true;statusSelect.append(option);
-  }
+  const options=[['packed','PROCESSING'],['shipped','DISPATCHED'],['delivered','DELIVERED'],['cancelled','CANCELLED']];
+  const selected=['shipped','dispatch','dispatched'].includes(raw)?'shipped':(['pending','confirmed','processing'].includes(raw)?'packed':raw);
+  for(const [value,text] of options){const option=document.createElement('option');option.value=value;option.textContent=text;if(value===selected)option.selected=true;statusSelect.append(option)}
   const saveStatus=document.createElement('button');saveStatus.className='secondary';saveStatus.textContent='Update Order Status';
-  if(o.order_status==='delivered'){statusSelect.disabled=true;saveStatus.disabled=true;saveStatus.textContent='Delivered — commission checked';}
   saveStatus.onclick=async()=>{
    const next=statusSelect.value;
+   if(next===raw){msg.textContent='Select a different status before updating.';return;}
    if(next==='delivered'&&!confirm('Confirm that this online order was successfully delivered? Product commissions will be processed once.'))return;
-   saveStatus.disabled=true;
-   msg.textContent='Updating order status...';
+   if(next==='cancelled'&&!confirm('Cancel this order permanently? It will move to Cancelled Orders and cannot be processed again.'))return;
+   saveStatus.disabled=true;statusSelect.disabled=true;msg.textContent='Updating order status...';
    try{
-    const {data,error}=await sb.from('gov_mart_orders')
-      .update({order_status:next,updated_at:new Date().toISOString()})
-      .eq('id',o.id)
-      .select('id,order_status')
-      .maybeSingle();
+    const {data,error}=await sb.from('gov_mart_orders').update({order_status:next,updated_at:new Date().toISOString()}).eq('id',o.id).select('id,order_status').maybeSingle();
     if(error)throw error;
-    if(!data){
-     msg.textContent='Status update did not change any row. Check that this admin is in gov_mart_admins and that the GOV MART admins update online order status RLS policy is enabled.';
-     return;
-    }
-    msg.textContent='Order '+(o.order_number||o.id)+' status saved as '+String(data.order_status||next).toUpperCase()+'.';
+    if(!data)throw new Error('No order row was updated. Check admin login and UPDATE RLS permission.');
+    msg.textContent='Order '+(o.order_number||o.id)+' moved to '+String(data.order_status||next).toUpperCase()+'.';
     await loadStoreOrders();
    }catch(e){
-    msg.textContent='Status update failed: '+(e?.message||String(e))+' — check gov_mart_orders UPDATE permission and admin RLS policy.';
-   }finally{saveStatus.disabled=false;}
+    msg.textContent='Status update failed: '+(e?.message||String(e));
+    saveStatus.disabled=false;statusSelect.disabled=false;
+   }
   };
-  controls.append(statusSelect,saveStatus);box.append(controls);host.append(box);
+  controls.append(statusSelect,saveStatus);box.append(controls);return box;
  }
- msg.textContent='Online orders are shown separately from store counter bills. Mark DELIVERED only after successful delivery.';
+ if(!active.length)host.textContent='No processing / dispatch orders.';
+ else active.forEach(o=>host.append(renderCard(o,false)));
+ if(!delivered.length)deliveredHost.textContent='No delivered orders.';
+ else delivered.forEach(o=>deliveredHost.append(renderCard(o,true)));
+ if(!cancelled.length)cancelledHost.textContent='No cancelled orders.';
+ else cancelled.forEach(o=>cancelledHost.append(renderCard(o,true)));
+ msg.textContent='Active orders can be updated. Delivered and Cancelled orders are locked and shown only in their respective lists.';
 }
 
 function renderStoreOrders(){
