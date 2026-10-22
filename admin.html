@@ -4,7 +4,7 @@
 <body><header><div class="topline"><div><h1>GOV MART</h1><div>Administrator dashboard</div></div><button id="logoutTop" class="danger">Sign Out</button></div></header>
 <section class="card" id="checking"><h2>Checking admin access...</h2><p class="muted">Please wait.</p></section>
 <section class="card hidden" id="denied"><h2>Admin access required</h2><p id="deniedText" class="muted">Sign in with the authorized administrator account.</p><button onclick="location.href='login.html'">Go to Login</button><button class="secondary" onclick="location.href='index.html'">Home</button></section>
-<nav class="nav hidden" id="adminNav" aria-label="Admin sections"><button class="active" data-section="dashboard">Dashboard</button><button data-section="users">Users</button><button data-section="plansSection">Plans & ROI</button><button data-section="paymentSettings">Payment Settings</button><button data-section="depositAdmin">Deposits</button><button data-section="activationAdmin">Manual Activation</button><button data-section="recordsAdmin">Activation & Payment Records</button><button data-section="withdrawalAdmin">Withdrawals</button><button data-section="storesAdmin">Franchise Stores</button><button data-section="productsAdmin">Products & Excel</button></nav>
+<nav class="nav hidden" id="adminNav" aria-label="Admin sections"><button class="active" data-section="dashboard">Dashboard</button><button data-section="users">Users</button><button data-section="plansSection">Plans & ROI</button><button data-section="paymentSettings">Payment Settings</button><button data-section="depositAdmin">Deposits</button><button data-section="activationAdmin">Manual Activation</button><button data-section="recordsAdmin">Activation & Payment Records</button><button data-section="withdrawalAdmin">Withdrawals</button><button data-section="storesAdmin">Franchise Stores</button><button data-section="productsAdmin">Products & Excel</button><button data-section="storeOrdersAdmin">Store Orders & Business</button></nav>
 <section class="card hidden" id="dashboard"><div class="topline"><div><h2 class="section-title">Overview</h2><p class="muted">Live counts from GOV MART member and request tables.</p></div><button class="secondary" id="refreshDashboard">Refresh dashboard</button></div><div class="stats"><div class="stat"><div class="label">Total users</div><div class="num" id="totalUsers">—</div></div><div class="stat"><div class="label">Active users</div><div class="num" id="activeUsers">—</div></div><div class="stat"><div class="label">Inactive users</div><div class="num" id="inactiveUsers">—</div></div><div class="stat"><div class="label">Suspended users</div><div class="num" id="suspendedUsers">—</div></div></div><div class="stats"><div class="stat"><div class="label">Pending deposits</div><div class="num" id="pendingDepositsCount">—</div></div><div class="stat"><div class="label">Pending withdrawals</div><div class="num" id="pendingWithdrawalsCount">—</div></div><div class="stat"><div class="label">Active plans</div><div class="num" id="activePlansCount">—</div></div><div class="stat"><div class="label">Admin tools</div><div class="num">6</div></div></div><p class="muted" id="dashboardMsg" role="status"></p></section>
 <section class="card hidden" id="users"><div class="topline"><div><h2 class="section-title">Member Management</h2><p class="muted">Member name, username, referral person, current plan and account status. Use “Open Member Panel” to securely access a member view (requires the admin impersonation Edge Function below).</p></div><button class="secondary" id="refreshUsers">Refresh users</button></div><div class="toolbar"><input id="userSearch" placeholder="Search name, username, mobile or referral code"><select id="userStatusFilter" style="max-width:180px"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select></div><p id="usersMsg" class="muted" role="status"></p><div id="usersList">Loading users...</div></section>
 <section class="card hidden" id="plansSection"><h2>Membership Plans</h2><p class="muted">Add plans, edit amounts, and enable or disable plans. Changes are saved to Supabase.</p><div class="fields"><div><label for="name">Plan name</label><input id="name" maxlength="60" placeholder="Plan 100"></div><div><label for="amount">Amount (₹)</label><input id="amount" type="number" min="1" max="10000000" step=".01" placeholder="100"></div><div><label for="roiEnabled">ROI applicable?</label><select id="roiEnabled"><option value="false">No ROI</option><option value="true">Yes, ROI applies</option></select></div><div><label for="roiRate">ROI rate (%)</label><input id="roiRate" type="number" min="0" max="100" step="0.01" value="0" placeholder="2"></div><div><label for="roiType">ROI frequency</label><select id="roiType"><option value="daily">Daily</option><option value="monthly" selected>Monthly</option></select></div><div><label for="roiDuration">ROI duration (days; 0 = not specified)</label><input id="roiDuration" type="number" min="0" max="36500" step="1" value="0" placeholder="30"></div></div><p class="muted">These are plan display settings only. This page does not calculate or pay ROI.</p><p><button id="save">Add Plan</button><button class="secondary" id="clear">Clear</button></p><p id="msg" class="muted" role="status"></p><div id="plans"><p class="muted">Loading plans...</p></div><p><button class="secondary" id="refresh">Refresh Plans</button><button class="danger" id="logout">Sign Out</button></p></section>
@@ -25,6 +25,19 @@
 <p><button id="saveStoreBtn">Add / Update Store</button><button class="secondary" id="clearStoreFormBtn">Clear</button><button class="secondary" id="refreshStoresBtn">Refresh Stores</button></p>
 <p id="storesMsg" class="muted" role="status"></p>
 <div id="storesList"><p class="muted">Loading franchise stores...</p></div>
+</section>
+<section class="card hidden" id="storeOrdersAdmin">
+<div class="topline"><div><h2 class="section-title">Store Orders & Business</h2><p class="muted">View counter sales, store-wise business, today's sales and bill details.</p></div><button class="secondary" id="refreshStoreOrders">Refresh store business</button></div>
+<div class="stats">
+<div class="stat"><div class="label">Today's store sales</div><div class="num" id="storeSalesToday">₹0</div></div>
+<div class="stat"><div class="label">Today's bills</div><div class="num" id="storeBillsToday">0</div></div>
+<div class="stat"><div class="label">All-time store sales</div><div class="num" id="storeSalesAll">₹0</div></div>
+<div class="stat"><div class="label">All-time bills</div><div class="num" id="storeBillsAll">0</div></div>
+</div>
+<div class="toolbar"><select id="storeOrderFilter"><option value="all">All stores</option></select><input id="storeOrderSearch" placeholder="Search bill number, store, member or mobile"></div>
+<p class="muted" id="storeOrdersMsg" role="status"></p>
+<h3>Store-wise business</h3><div id="storeBusinessList"><p class="muted">Loading store totals...</p></div>
+<h3 style="margin-top:24px">Recent store bills</h3><div id="storeOrdersList"><p class="muted">Loading store orders...</p></div>
 </section>
 <section class="card hidden" id="productsAdmin">
 <h2>Product Management & Excel Upload</h2>
@@ -249,8 +262,80 @@ el('saveProductBtn').onclick=async()=>{const sku=el('prodBarcode').value.trim(),
 function parseCsv(text){const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'&&quoted&&text[i+1]==='"'){field+='"';i++}else if(c==='"')quoted=!quoted;else if(c===','&&!quoted){row.push(field);field=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(field);if(row.some(v=>v.trim()))rows.push(row);row=[];field=''}else field+=c}row.push(field);if(row.some(v=>v.trim()))rows.push(row);return rows}
 el('productCsvFile').onchange=async ev=>{const file=ev.target.files?.[0];if(!file)return;const out=el('productsAdminMsg');try{const rows=parseCsv(await file.text());if(rows.length<2)throw new Error('CSV has no product rows.');const norm=s=>String(s||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');const headers=rows[0].map(norm),col=(r,...names)=>{const i=headers.findIndex(h=>names.includes(h));return i<0?'':String(r[i]??'').trim()};let saved=0,failed=[];for(let i=1;i<rows.length;i++){const r=rows[i],sku=col(r,'barcode','sku','barcode sku'),product_name=col(r,'productname','name');if(!sku||!product_name){failed.push('Row '+(i+1)+': barcode/name missing');continue}const selling_price=Number(col(r,'storesellingprice','sellingprice','price')),net_profit=Number(col(r,'netprofit','companyspreadstoremargin','profit')||0),stock_quantity=Number(col(r,'stockquantity','stock'));if(!Number.isFinite(selling_price)||selling_price<0||!Number.isFinite(net_profit)||net_profit<0||!Number.isInteger(stock_quantity)||stock_quantity<0){failed.push('Row '+(i+1)+': invalid price/profit/stock');continue}const payload={sku,product_name,category:col(r,'category'),unit:col(r,'unit')||'pcs',selling_price,net_profit,stock_quantity,image_url:col(r,'imageurl')||null,is_active:true};const existing=await sb.from('gov_mart_products').select('id').eq('sku',sku).maybeSingle();if(existing.error){failed.push('Row '+(i+1)+': '+existing.error.message);continue}const result=existing.data?.id?await sb.from('gov_mart_products').update(payload).eq('id',existing.data.id):await sb.from('gov_mart_products').insert(payload);if(result.error)failed.push('Row '+(i+1)+': '+result.error.message);else saved++}out.textContent='Import finished. Saved/updated: '+saved+'. '+(failed.length?'Issues: '+failed.slice(0,8).join(' | '):'No row errors.');await loadAdminProducts()}catch(e){out.textContent='CSV import failed: '+e.message}finally{ev.target.value=''}};
 
-function loadSectionData(id){if(id==='dashboard')loadDashboard();if(id==='users')loadUsers();if(id==='plansSection')loadPlans();if(id==='depositAdmin')loadDeposits();if(id==='activationAdmin')loadActivationPlans();if(id==='recordsAdmin')loadRecords();if(id==='withdrawalAdmin')loadWithdrawals();if(id==='paymentSettings')loadPaymentSettings();if(id==='storesAdmin')loadStores();if(id==='productsAdmin')loadAdminProducts()}
-function activateSection(id,writeHistory=false){const ids=['dashboard','users','plansSection','paymentSettings','depositAdmin','activationAdmin','recordsAdmin','withdrawalAdmin','storesAdmin','productsAdmin'];if(!ids.includes(id))id='dashboard';ids.forEach(x=>{if(el(x))hide(el(x))});show(el(id));document.querySelectorAll('#adminNav button').forEach(b=>b.classList.toggle('active',b.dataset.section===id));if(writeHistory&&location.hash!=='#'+id)history.pushState({section:id},'', '#'+id);loadSectionData(id)}
+
+let cachedStoreOrders=[], cachedStoreOrderItems=[], cachedStoreDirectory=[];
+const gmMoney = n => '₹' + Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+function localDateKey(v){const d=new Date(v);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+async function loadStoreOrders(){
+ const msg=el('storeOrdersMsg'), ordersHost=el('storeOrdersList'), businessHost=el('storeBusinessList');
+ msg.textContent='Loading store orders and totals...';ordersHost.textContent='Loading...';businessHost.textContent='Loading...';
+ try{
+  const [ordersRes,storesRes,itemsRes]=await Promise.all([
+   sb.from('gov_mart_store_orders').select('id,order_number,store_id,member_id,member_name,member_mobile,total_amount,payment_method,payment_reference,order_status,created_by,created_at').order('created_at',{ascending:false}).limit(2000),
+   sb.from('gov_mart_stores').select('id,store_code,store_name,is_active').order('store_name'),
+   sb.from('gov_mart_store_order_items').select('id,order_id,product_name,sku,quantity,unit_price,line_total').limit(5000)
+  ]);
+  const err=[ordersRes.error,storesRes.error,itemsRes.error].find(Boolean);
+  if(err)throw err;
+  cachedStoreOrders=ordersRes.data||[];cachedStoreDirectory=storesRes.data||[];cachedStoreOrderItems=itemsRes.data||[];
+  const filter=el('storeOrderFilter'), prior=filter.value;
+  filter.replaceChildren();const all=document.createElement('option');all.value='all';all.textContent='All stores';filter.append(all);
+  for(const st of cachedStoreDirectory){const o=document.createElement('option');o.value=st.id;o.textContent=(st.store_name||'Store')+' · '+(st.store_code||'');filter.append(o)}
+  if([...filter.options].some(o=>o.value===prior))filter.value=prior;
+  renderStoreOrders();
+  msg.textContent='Loaded '+cachedStoreOrders.length+' bills. Showing up to 2,000 latest bills; refresh to reload.';
+ }catch(e){
+  ordersHost.textContent='Could not load store orders: '+(e.message||'Unknown error');
+  businessHost.textContent='Could not load store totals.';
+  msg.textContent='Check admin SELECT permission / RLS policies for gov_mart_store_orders, gov_mart_store_order_items and gov_mart_stores.';
+  ['storeSalesToday','storeBillsToday','storeSalesAll','storeBillsAll'].forEach(id=>el(id).textContent='—');
+ }
+}
+function renderStoreOrders(){
+ const ordersHost=el('storeOrdersList'), businessHost=el('storeBusinessList');
+ const selected=el('storeOrderFilter').value, q=el('storeOrderSearch').value.trim().toLowerCase();
+ const stores=new Map(cachedStoreDirectory.map(s=>[String(s.id),s]));
+ const today=localDateKey(new Date());
+ const todayRows=cachedStoreOrders.filter(o=>localDateKey(o.created_at)===today && o.order_status!=='cancelled');
+ const allRows=cachedStoreOrders.filter(o=>o.order_status!=='cancelled');
+ el('storeSalesToday').textContent=gmMoney(todayRows.reduce((s,o)=>s+Number(o.total_amount||0),0));
+ el('storeBillsToday').textContent=String(todayRows.length);
+ el('storeSalesAll').textContent=gmMoney(allRows.reduce((s,o)=>s+Number(o.total_amount||0),0));
+ el('storeBillsAll').textContent=String(allRows.length);
+ businessHost.replaceChildren();
+ const businessRows=cachedStoreDirectory.map(st=>{
+  const rows=allRows.filter(o=>String(o.store_id)===String(st.id));
+  const todays=rows.filter(o=>localDateKey(o.created_at)===today);
+  return {st,rows,todays,total:rows.reduce((s,o)=>s+Number(o.total_amount||0),0),todayTotal:todays.reduce((s,o)=>s+Number(o.total_amount||0),0)};
+ }).sort((a,b)=>b.total-a.total);
+ if(!businessRows.length){businessHost.textContent='No franchise stores found.'}
+ for(const x of businessRows){
+  const box=document.createElement('div');box.className='plan';
+  const title=document.createElement('strong');title.textContent=(x.st.store_name||'Store')+' · '+(x.st.store_code||'');
+  const details=document.createElement('p');details.className='muted';details.textContent='Today: '+gmMoney(x.todayTotal)+' ('+x.todays.length+' bills) · All-time: '+gmMoney(x.total)+' ('+x.rows.length+' bills) · '+(x.st.is_active?'ACTIVE':'DISABLED');
+  box.append(title,details);businessHost.append(box);
+ }
+ const rows=cachedStoreOrders.filter(o=>{
+  const st=stores.get(String(o.store_id));const hay=[o.order_number,o.member_name,o.member_mobile,o.payment_method,o.payment_reference,st?.store_name,st?.store_code].join(' ').toLowerCase();
+  return (selected==='all'||String(o.store_id)===selected)&&hay.includes(q);
+ });
+ ordersHost.replaceChildren();
+ if(!rows.length){ordersHost.textContent='No store bills match this filter.';return}
+ for(const o of rows){
+  const st=stores.get(String(o.store_id));const box=document.createElement('div');box.className='plan';
+  const title=document.createElement('strong');title.textContent=(o.order_number||o.id)+' · '+gmMoney(o.total_amount);
+  const details=document.createElement('p');details.className='muted';details.textContent=(st?.store_name||'Unknown store')+' ('+(st?.store_code||'—')+') · '+(o.member_name||'Member')+' · '+(o.member_mobile||'No mobile')+' · '+new Date(o.created_at).toLocaleString()+' · '+String(o.payment_method||'—').toUpperCase()+' · '+String(o.order_status||'—').toUpperCase();
+  const items=cachedStoreOrderItems.filter(i=>String(i.order_id)===String(o.id));
+  const itemLine=document.createElement('p');itemLine.className='muted';itemLine.textContent=items.length?'Items: '+items.map(i=>(i.product_name||'Product')+' × '+i.quantity+' ('+gmMoney(i.line_total)+')').join(' · '):'No item detail rows returned.';
+  box.append(title,details,itemLine);ordersHost.append(box);
+ }
+}
+if(el('refreshStoreOrders'))el('refreshStoreOrders').onclick=loadStoreOrders;
+if(el('storeOrderFilter'))el('storeOrderFilter').onchange=renderStoreOrders;
+if(el('storeOrderSearch'))el('storeOrderSearch').oninput=renderStoreOrders;
+
+function loadSectionData(id){if(id==='dashboard')loadDashboard();if(id==='users')loadUsers();if(id==='plansSection')loadPlans();if(id==='depositAdmin')loadDeposits();if(id==='activationAdmin')loadActivationPlans();if(id==='recordsAdmin')loadRecords();if(id==='withdrawalAdmin')loadWithdrawals();if(id==='paymentSettings')loadPaymentSettings();if(id==='storesAdmin')loadStores();if(id==='productsAdmin')loadAdminProducts();if(id==='storeOrdersAdmin')loadStoreOrders()}
+function activateSection(id,writeHistory=false){const ids=['dashboard','users','plansSection','paymentSettings','depositAdmin','activationAdmin','recordsAdmin','withdrawalAdmin','storesAdmin','productsAdmin','storeOrdersAdmin'];if(!ids.includes(id))id='dashboard';ids.forEach(x=>{if(el(x))hide(el(x))});show(el(id));document.querySelectorAll('#adminNav button').forEach(b=>b.classList.toggle('active',b.dataset.section===id));if(writeHistory&&location.hash!=='#'+id)history.pushState({section:id},'', '#'+id);loadSectionData(id)}
 document.querySelectorAll('#adminNav button').forEach(b=>b.addEventListener('click',()=>activateSection(b.dataset.section,true)));
 function restoreSectionFromUrl(){const id=decodeURIComponent(location.hash.slice(1));activateSection(id||'dashboard',false)}
 window.addEventListener('popstate',restoreSectionFromUrl);window.addEventListener('hashchange',restoreSectionFromUrl);
