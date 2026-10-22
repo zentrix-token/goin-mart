@@ -38,13 +38,13 @@
 <p class="muted" id="storeOrdersMsg" role="status"></p>
 <h3>Store-wise business</h3><div id="storeBusinessList"><p class="muted">Loading store totals...</p></div>
 <h3 style="margin-top:24px">Recent store bills</h3><div id="storeOrdersList"><p class="muted">Loading store orders...</p></div>
-<h3 style="margin-top:28px">Company Wallet — Commission Overflow</h3>
+<h3 style="margin-top:28px">Company Wallet — Product Commission + Binary Matching Overflow</h3>
 <div class="stats">
 <div class="stat"><div class="label">Company Wallet Balance</div><div class="num" id="companyWalletBalance">₹0.00</div></div>
 <div class="stat"><div class="label">Today's Overflow</div><div class="num" id="companyWalletToday">₹0.00</div></div>
 <div class="stat"><div class="label">Overflow Entries</div><div class="num" id="companyWalletCount">0</div></div>
 </div>
-<p class="muted" id="companyWalletMsg" role="status">Loading company wallet...</p>
+<p class="muted" id="companyWalletMsg" role="status">Loading company wallet (product commission + binary matching overflow)...</p>
 <div id="companyWalletRows"><p class="muted">Loading overflow records...</p></div>
 <h3 style="margin-top:28px">Online Orders from user.html</h3><p class="muted">Member website orders, separate from store counter bills. Terminal orders (Delivered / Cancelled) move to their own lists and cannot be processed again.</p><div class="stats"><div class="stat"><div class="label">Today online sales (excluding cancelled)</div><div class="num" id="onlineSalesToday">₹0</div></div><div class="stat"><div class="label">Today online orders</div><div class="num" id="onlineOrdersToday">0</div></div><div class="stat"><div class="label">All-time online sales (excluding cancelled)</div><div class="num" id="onlineSalesAll">₹0</div></div><div class="stat"><div class="label">All-time online orders</div><div class="num" id="onlineOrdersAll">0</div></div></div><div id="onlineOrdersMsg" class="muted" role="status"></div><h3>Processing / Dispatch Orders</h3><div id="onlineOrdersList"><p class="muted">Loading active online orders...</p></div><h3 style="margin-top:24px">Delivered Orders</h3><div id="onlineDeliveredList"><p class="muted">Loading delivered orders...</p></div><h3 style="margin-top:24px">Cancelled Orders</h3><div id="onlineCancelledList"><p class="muted">Loading cancelled orders...</p></div>
 </section>
@@ -325,7 +325,7 @@ async function loadStoreOrders(){
 async function loadCompanyWallet(){
  const host=el('companyWalletRows'),msg=el('companyWalletMsg');
  if(!host)return;
- host.textContent='Loading company wallet...';msg.textContent='';
+ host.textContent='Loading company wallet (product commission + binary matching overflow)...';msg.textContent='';
  try{
   const [summaryRes,rowsRes]=await Promise.all([
    sb.rpc('gov_mart_get_company_wallet_summary'),
@@ -348,8 +348,8 @@ async function loadCompanyWallet(){
   }
   msg.textContent='Showing latest '+(rowsRes.data||[]).length+' company wallet entries.';
  }catch(e){
-  host.textContent='Company wallet could not load: '+(e.message||'Unknown error');
-  msg.textContent='Run the product commission SQL and check admin permissions.';
+  host.textContent='Company wallet could not load. Run the product commission + Binary Matching 1X SQL update and check admin permissions: '+(e.message||'Unknown error');
+  msg.textContent='Company Wallet includes product commission overflow and Binary Matching amounts above each member’s daily 1X plan limit.';
  }
 }
 
