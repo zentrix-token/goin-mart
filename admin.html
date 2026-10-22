@@ -38,6 +38,7 @@
 <p class="muted" id="storeOrdersMsg" role="status"></p>
 <h3>Store-wise business</h3><div id="storeBusinessList"><p class="muted">Loading store totals...</p></div>
 <h3 style="margin-top:24px">Recent store bills</h3><div id="storeOrdersList"><p class="muted">Loading store orders...</p></div>
+<h3 style="margin-top:28px">Online Orders from user.html</h3><p class="muted">Member website orders, separate from store counter bills.</p><div class="stats"><div class="stat"><div class="label">Today online sales</div><div class="num" id="onlineSalesToday">₹0</div></div><div class="stat"><div class="label">Today online orders</div><div class="num" id="onlineOrdersToday">0</div></div><div class="stat"><div class="label">All-time online sales</div><div class="num" id="onlineSalesAll">₹0</div></div><div class="stat"><div class="label">All-time online orders</div><div class="num" id="onlineOrdersAll">0</div></div></div><div id="onlineOrdersMsg" class="muted" role="status"></div><div id="onlineOrdersList"><p class="muted">Loading online orders...</p></div>
 </section>
 <section class="card hidden" id="productsAdmin">
 <h2>Product Management & Excel Upload</h2>
@@ -263,27 +264,30 @@ function parseCsv(text){const rows=[];let row=[],field='',quoted=false;for(let i
 el('productCsvFile').onchange=async ev=>{const file=ev.target.files?.[0];if(!file)return;const out=el('productsAdminMsg');try{const rows=parseCsv(await file.text());if(rows.length<2)throw new Error('CSV has no product rows.');const norm=s=>String(s||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');const headers=rows[0].map(norm),col=(r,...names)=>{const i=headers.findIndex(h=>names.includes(h));return i<0?'':String(r[i]??'').trim()};let saved=0,failed=[];for(let i=1;i<rows.length;i++){const r=rows[i],sku=col(r,'barcode','sku','barcode sku'),product_name=col(r,'productname','name');if(!sku||!product_name){failed.push('Row '+(i+1)+': barcode/name missing');continue}const selling_price=Number(col(r,'storesellingprice','sellingprice','price')),net_profit=Number(col(r,'netprofit','companyspreadstoremargin','profit')||0),stock_quantity=Number(col(r,'stockquantity','stock'));if(!Number.isFinite(selling_price)||selling_price<0||!Number.isFinite(net_profit)||net_profit<0||!Number.isInteger(stock_quantity)||stock_quantity<0){failed.push('Row '+(i+1)+': invalid price/profit/stock');continue}const payload={sku,product_name,category:col(r,'category'),unit:col(r,'unit')||'pcs',selling_price,net_profit,stock_quantity,image_url:col(r,'imageurl')||null,is_active:true};const existing=await sb.from('gov_mart_products').select('id').eq('sku',sku).maybeSingle();if(existing.error){failed.push('Row '+(i+1)+': '+existing.error.message);continue}const result=existing.data?.id?await sb.from('gov_mart_products').update(payload).eq('id',existing.data.id):await sb.from('gov_mart_products').insert(payload);if(result.error)failed.push('Row '+(i+1)+': '+result.error.message);else saved++}out.textContent='Import finished. Saved/updated: '+saved+'. '+(failed.length?'Issues: '+failed.slice(0,8).join(' | '):'No row errors.');await loadAdminProducts()}catch(e){out.textContent='CSV import failed: '+e.message}finally{ev.target.value=''}};
 
 
-let cachedStoreOrders=[], cachedStoreOrderItems=[], cachedStoreDirectory=[];
+let cachedStoreOrders=[], cachedStoreOrderItems=[], cachedStoreDirectory=[], cachedOnlineOrders=[], cachedOnlineOrderItems=[];
 const gmMoney = n => '₹' + Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 function localDateKey(v){const d=new Date(v);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 async function loadStoreOrders(){
  const msg=el('storeOrdersMsg'), ordersHost=el('storeOrdersList'), businessHost=el('storeBusinessList');
  msg.textContent='Loading store orders and totals...';ordersHost.textContent='Loading...';businessHost.textContent='Loading...';
  try{
-  const [ordersRes,storesRes,itemsRes]=await Promise.all([
+  const [ordersRes,storesRes,itemsRes,onlineRes,onlineItemsRes]=await Promise.all([
    sb.from('gov_mart_store_orders').select('id,order_number,store_id,member_id,member_name,member_mobile,total_amount,payment_method,payment_reference,order_status,created_by,created_at').order('created_at',{ascending:false}).limit(2000),
    sb.from('gov_mart_stores').select('id,store_code,store_name,is_active').order('store_name'),
-   sb.from('gov_mart_store_order_items').select('id,order_id,product_name,sku,quantity,unit_price,line_total').limit(5000)
+   sb.from('gov_mart_store_order_items').select('id,order_id,product_name,sku,quantity,unit_price,line_total').limit(5000),
+   sb.from('gov_mart_orders').select('id,order_number,member_id,total_amount,order_status,payment_method,payment_status,delivery_address,contact_mobile,created_at').order('created_at',{ascending:false}).limit(2000),
+   sb.from('gov_mart_order_items').select('id,order_id,product_name,sku,quantity,unit_price,line_total').limit(5000)
   ]);
-  const err=[ordersRes.error,storesRes.error,itemsRes.error].find(Boolean);
+  const err=[ordersRes.error,storesRes.error,itemsRes.error,onlineRes.error,onlineItemsRes.error].find(Boolean);
   if(err)throw err;
   cachedStoreOrders=ordersRes.data||[];cachedStoreDirectory=storesRes.data||[];cachedStoreOrderItems=itemsRes.data||[];
+  cachedOnlineOrders=onlineRes.data||[];cachedOnlineOrderItems=onlineItemsRes.data||[];
   const filter=el('storeOrderFilter'), prior=filter.value;
   filter.replaceChildren();const all=document.createElement('option');all.value='all';all.textContent='All stores';filter.append(all);
   for(const st of cachedStoreDirectory){const o=document.createElement('option');o.value=st.id;o.textContent=(st.store_name||'Store')+' · '+(st.store_code||'');filter.append(o)}
   if([...filter.options].some(o=>o.value===prior))filter.value=prior;
-  renderStoreOrders();
-  msg.textContent='Loaded '+cachedStoreOrders.length+' bills. Showing up to 2,000 latest bills; refresh to reload.';
+  renderStoreOrders();renderOnlineOrders();
+  msg.textContent='Loaded '+cachedStoreOrders.length+' store bills and '+cachedOnlineOrders.length+' online orders. Showing up to 2,000 latest records; refresh to reload.';
  }catch(e){
   ordersHost.textContent='Could not load store orders: '+(e.message||'Unknown error');
   businessHost.textContent='Could not load store totals.';
@@ -291,6 +295,31 @@ async function loadStoreOrders(){
   ['storeSalesToday','storeBillsToday','storeSalesAll','storeBillsAll'].forEach(id=>el(id).textContent='—');
  }
 }
+
+function renderOnlineOrders(){
+ const host=el('onlineOrdersList'), msg=el('onlineOrdersMsg');
+ const today=localDateKey(new Date());
+ const all=cachedOnlineOrders.filter(o=>o.order_status!=='cancelled');
+ const todays=all.filter(o=>localDateKey(o.created_at)===today);
+ el('onlineSalesToday').textContent=gmMoney(todays.reduce((s,o)=>s+Number(o.total_amount||0),0));
+ el('onlineOrdersToday').textContent=String(todays.length);
+ el('onlineSalesAll').textContent=gmMoney(all.reduce((s,o)=>s+Number(o.total_amount||0),0));
+ el('onlineOrdersAll').textContent=String(all.length);
+ host.replaceChildren();
+ if(!cachedOnlineOrders.length){host.textContent='No online orders found in gov_mart_orders.';msg.textContent='The online order table returned no records.';return}
+ for(const o of cachedOnlineOrders){
+  const box=document.createElement('div');box.className='plan';
+  const title=document.createElement('strong');title.textContent=(o.order_number||o.id)+' · '+gmMoney(o.total_amount);
+  const details=document.createElement('p');details.className='muted';
+  details.textContent='Member ID: '+(o.member_id||'—')+' · '+(o.contact_mobile||'No mobile')+' · '+new Date(o.created_at).toLocaleString()+' · '+String(o.payment_method||'—').toUpperCase()+' · Payment: '+String(o.payment_status||'—').toUpperCase()+' · Order: '+String(o.order_status||'—').toUpperCase();
+  const address=document.createElement('p');address.className='muted';address.textContent='Delivery: '+(o.delivery_address||'—');
+  const items=cachedOnlineOrderItems.filter(i=>String(i.order_id)===String(o.id));
+  const itemLine=document.createElement('p');itemLine.className='muted';itemLine.textContent=items.length?'Items: '+items.map(i=>(i.product_name||'Product')+' × '+i.quantity+' ('+gmMoney(i.line_total)+')').join(' · '):'Order items not returned.';
+  box.append(title,details,address,itemLine);host.append(box);
+ }
+ msg.textContent='Online orders are shown separately from store counter bills.';
+}
+
 function renderStoreOrders(){
  const ordersHost=el('storeOrdersList'), businessHost=el('storeBusinessList');
  const selected=el('storeOrderFilter').value, q=el('storeOrderSearch').value.trim().toLowerCase();
