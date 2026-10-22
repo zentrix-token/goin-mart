@@ -367,11 +367,23 @@ function renderOnlineOrders(){
    const next=statusSelect.value;
    if(next==='delivered'&&!confirm('Confirm that this online order was successfully delivered? Product commissions will be processed once.'))return;
    saveStatus.disabled=true;
-   const {error}=await sb.from('gov_mart_orders').update({order_status:next,updated_at:new Date().toISOString()}).eq('id',o.id);
-   saveStatus.disabled=false;
-   if(error){msg.textContent='Status update failed: '+error.message;return;}
-   msg.textContent='Order '+(o.order_number||o.id)+' status updated to '+next.toUpperCase()+'.';
-   await loadStoreOrders();
+   msg.textContent='Updating order status...';
+   try{
+    const {data,error}=await sb.from('gov_mart_orders')
+      .update({order_status:next,updated_at:new Date().toISOString()})
+      .eq('id',o.id)
+      .select('id,order_status')
+      .maybeSingle();
+    if(error)throw error;
+    if(!data){
+     msg.textContent='Status update did not change any row. Check that this admin is in gov_mart_admins and that the GOV MART admins update online order status RLS policy is enabled.';
+     return;
+    }
+    msg.textContent='Order '+(o.order_number||o.id)+' status saved as '+String(data.order_status||next).toUpperCase()+'.';
+    await loadStoreOrders();
+   }catch(e){
+    msg.textContent='Status update failed: '+(e?.message||String(e))+' — check gov_mart_orders UPDATE permission and admin RLS policy.';
+   }finally{saveStatus.disabled=false;}
   };
   controls.append(statusSelect,saveStatus);box.append(controls);host.append(box);
  }
