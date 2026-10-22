@@ -50,7 +50,12 @@
 /* Highlight successful withdrawal submission clearly */
 .withdraw-success{display:block!important;background:#e8f7ee!important;border:1px solid #168348!important;border-left:5px solid #168348!important;border-radius:10px!important;color:#14532d!important;font-weight:700!important;padding:14px 16px!important;margin:14px 0!important;line-height:1.55!important;box-shadow:0 2px 8px rgba(22,131,72,.12)!important}
 .withdraw-error{display:block!important;background:#fff0f0!important;border:1px solid #dc2626!important;border-left:5px solid #dc2626!important;border-radius:10px!important;color:#991b1b!important;font-weight:700!important;padding:14px 16px!important;margin:14px 0!important;line-height:1.55!important}
-</style></head><body>
+
+/* Shared hosting notice banner */
+.hosting-notice{position:sticky;top:0;z-index:99999;width:100%;padding:10px 14px;background:#fff0c7;color:#6b4300;border-bottom:2px solid #d99a16;text-align:center;font:700 14px/1.4 Arial,system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.10)}
+@media(max-width:600px){.hosting-notice{font-size:13px;padding:9px 10px}}
+@media print{.hosting-notice{display:none!important}}
+</style></head><body><div class="hosting-notice" role="status" aria-label="Hosting notice">Need hosting space? Contact your hosting provider.</div>
 <section id="loading" class="card" style="max-width:500px;margin:50px auto"><h2>GOV MART</h2><p class="mut">Checking your secure session...</p></section>
 <section id="signedOut" class="card hidden" style="max-width:500px;margin:50px auto"><h2>Login required</h2><p class="mut" id="signedOutMessage">Please sign in with your GOV MART member account.</p><button class="btn" onclick="location.href='login.html'">Go to Login</button> <button class="btn secondary" onclick="location.href='index.html'">Home</button></section>
 <section id="app" class="layout hidden"><aside><div class="brand"><div class="logo">GM</div><div>GOV MART<div class="mut">Shop Smart. Save More.</div></div></div><nav class="nav" id="sidenav"></nav><div class="aside-note">MEMBER PORTAL<br><b>GOV MART</b><br>Secure member dashboard</div></aside>
